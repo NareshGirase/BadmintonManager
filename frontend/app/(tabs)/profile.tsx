@@ -98,29 +98,22 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Balance Card */}
-        <View style={styles.balanceCard}>
-          <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>Current Balance</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getBalanceColor(user?.balance || 0) + '20' }]}>
-              <Text style={[styles.statusText, { color: getBalanceColor(user?.balance || 0) }]}>
-                {getBalanceStatus(user?.balance || 0)}
-              </Text>
+        {/* Balance Card - only for players (admin has no balance to track) */}
+        {user?.role !== 'admin' && (
+          <View style={styles.balanceCard}>
+            <View style={styles.balanceHeader}>
+              <Text style={styles.balanceLabel}>Current Balance</Text>
+              <View style={[styles.statusBadge, { backgroundColor: getBalanceColor(user?.balance || 0) + '20' }]}>
+                <Text style={[styles.statusText, { color: getBalanceColor(user?.balance || 0) }]}>
+                  {getBalanceStatus(user?.balance || 0)}
+                </Text>
+              </View>
             </View>
+            <Text style={[styles.balanceAmount, { color: getBalanceColor(user?.balance || 0) }]}>
+              ₹{user?.balance.toFixed(2)}
+            </Text>
           </View>
-          <Text style={[styles.balanceAmount, { color: getBalanceColor(user?.balance || 0) }]}>
-            ₹{user?.balance.toFixed(2)}
-          </Text>
-          {user?.role === 'admin' && (
-            <TouchableOpacity
-              style={styles.depositButton}
-              onPress={() => setDepositModalVisible(true)}
-            >
-              <Ionicons name="add-circle" size={20} color="#fff" />
-              <Text style={styles.depositButtonText}>Add Funds</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        )}
 
         {/* Menu Options */}
         <View style={styles.menuSection}>

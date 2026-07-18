@@ -34,11 +34,13 @@ export default function MonthlyReportScreen() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/transactions/monthly-summary?month=${month}`);
       const data = await response.json();
+      // Exclude admin from breakdown (not a player)
+      const nonAdminData = data.filter((s: UserSummary) => s.user_name !== 'Admin');
       // Non-admins only see their own summary
       if (user?.role === 'admin') {
-        setSummary(data);
+        setSummary(nonAdminData);
       } else {
-        setSummary(data.filter((s: UserSummary) => s.user_name === user?.name));
+        setSummary(nonAdminData.filter((s: UserSummary) => s.user_name === user?.name));
       }
     } catch (error) {
       console.error('Error fetching summary:', error);

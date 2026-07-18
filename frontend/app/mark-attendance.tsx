@@ -43,7 +43,8 @@ export default function MarkAttendanceScreen() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/players`);
       const data = await response.json();
-      setPlayers(data);
+      // Admin doesn't play - exclude from selection
+      setPlayers(data.filter((p: Player) => p.role !== 'admin'));
     } catch (error) {
       console.error('Error fetching players:', error);
       setErrorMessage('Failed to load players');

@@ -47,7 +47,8 @@ export default function HomeScreen() {
       const playersData = await playersRes.json();
       const notificationsData = await notificationsRes.json();
 
-      setPlayers(playersData);
+      // Exclude admin from the players list (admin doesn't play)
+      setPlayers(playersData.filter((p: Player) => p.role !== 'admin'));
       setNotifications(notificationsData.filter((n: Notification) => !n.read));
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -99,26 +100,28 @@ export default function HomeScreen() {
           <Ionicons name="tennisball" size={40} color="#10b981" />
         </View>
 
-        {/* Balance Card */}
-        <View style={styles.balanceCard}>
-          <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>Your Balance</Text>
-            <Ionicons 
-              name={getBalanceIcon(user?.balance || 0) as any} 
-              size={24} 
-              color={getBalanceColor(user?.balance || 0)} 
-            />
-          </View>
-          <Text style={[styles.balanceAmount, { color: getBalanceColor(user?.balance || 0) }]}>
-            ₹{user?.balance.toFixed(2)}
-          </Text>
-          {user?.role === 'player' && user.balance < 300 && (
-            <View style={styles.warningBanner}>
-              <Ionicons name="warning" size={16} color="#f59e0b" />
-              <Text style={styles.warningText}>Low balance - consider adding funds</Text>
+        {/* Balance Card - only for players (admin doesn't have a balance) */}
+        {user?.role !== 'admin' && (
+          <View style={styles.balanceCard}>
+            <View style={styles.balanceHeader}>
+              <Text style={styles.balanceLabel}>Your Balance</Text>
+              <Ionicons 
+                name={getBalanceIcon(user?.balance || 0) as any} 
+                size={24} 
+                color={getBalanceColor(user?.balance || 0)} 
+              />
             </View>
-          )}
-        </View>
+            <Text style={[styles.balanceAmount, { color: getBalanceColor(user?.balance || 0) }]}>
+              ₹{user?.balance.toFixed(2)}
+            </Text>
+            {user && user.balance < 300 && (
+              <View style={styles.warningBanner}>
+                <Ionicons name="warning" size={16} color="#f59e0b" />
+                <Text style={styles.warningText}>Low balance - ask admin to add funds</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Notifications */}
         {notifications.length > 0 && (
