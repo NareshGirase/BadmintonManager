@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +15,7 @@ interface Player {
 }
 
 export default function MarkAttendanceScreen() {
-  const { user } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
@@ -23,11 +23,17 @@ export default function MarkAttendanceScreen() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [staleSessionModal, setStaleSessionModal] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      Alert.alert('Access Denied', 'Only admin can mark attendance');
-      router.back();
+    if (!user) {
+      router.replace('/');
+      return;
+    }
+    if (user.role !== 'admin') {
+      setErrorMessage('Only admin can mark attendance');
+      setTimeout(() => router.back(), 1500);
       return;
     }
     fetchPlayers();
@@ -40,7 +46,7 @@ export default function MarkAttendanceScreen() {
       setPlayers(data);
     } catch (error) {
       console.error('Error fetching players:', error);
-      Alert.alert('Error', 'Failed to load players');
+      setErrorMessage('Failed to load players');
     } finally {
       setLoading(false);
     }
@@ -56,17 +62,18 @@ export default function MarkAttendanceScreen() {
 
   const handleSubmit = async () => {
     if (selectedPlayers.length === 0) {
-      Alert.alert('Error', 'Please select at least one player');
+      setErrorMessage('Please select at least one player');
       return;
     }
 
     const fee = parseFloat(courtFee);
     if (isNaN(fee) || fee <= 0) {
-      Alert.alert('Error', 'Please enter a valid court fee');
+      setErrorMessage('Please enter a valid court fee');
       return;
     }
 
     setSubmitting(true);
+    setErrorMessage(null);
     try {
       const response = await fetch(`${BACKEND_URL}/api/sessions?admin_id=${user?.id}`, {
         method: 'POST',
@@ -82,20 +89,28 @@ export default function MarkAttendanceScreen() {
 
       if (response.ok) {
         const result = await response.json();
-        // Navigate immediately - success shown as toast-like via router push
         router.replace({
           pathname: '/(tabs)/sessions' as any,
           params: { newSessionAmount: result.amount_per_player.toFixed(2) },
         });
+      } else if (response.status === 403 || response.status === 404) {
+        // Stale session - user needs to re-login
+        setStaleSessionModal(true);
       } else {
         const error = await response.json();
-        Alert.alert('Error', error.detail || 'Failed to create session');
+        setErrorMessage(error.detail || 'Failed to create session');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to create session');
+      setErrorMessage('Network error. Please check your connection.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleReLogin = async () => {
+    setStaleSessionModal(false);
+    await logout();
+    router.replace('/');
   };
 
   if (loading) {
@@ -123,6 +138,17 @@ export default function MarkAttendanceScreen() {
           <Text style={styles.headerTitle}>Mark Attendance</Text>
           <View style={{ width: 40 }} />
         </View>
+
+        {/* Error Banner */}
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={20} color="#fff" />
+            <Text style={styles.errorBannerText}>{errorMessage}</Text>
+            <TouchableOpacity onPress={() => setErrorMessage(null)}>
+              <Ionicons name="close" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         <ScrollView style={styles.scrollView}>
           {/* Date Input */}
@@ -219,6 +245,32 @@ export default function MarkAttendanceScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Stale Session Modal */}
+      <Modal
+        visible={staleSessionModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setStaleSessionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="warning" size={40} color="#f59e0b" />
+            </View>
+            <Text style={styles.modalTitle}>Session Expired</Text>
+            <Text style={styles.modalMessage}>
+              Your session appears to be outdated. Please login again to continue.
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonPrimary]}
+              onPress={handleReLogin}
+            >
+              <Text style={styles.modalButtonText}>Login Again</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -227,6 +279,74 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ef4444',
+    padding: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  errorBannerText: {
+    color: '#fff',
+    fontWeight: '600',
+    flex: 1,
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+  },
+  modalIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#78350f',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  modalButton: {
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  modalButtonPrimary: {
+    backgroundColor: '#10b981',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
