@@ -111,13 +111,15 @@ export default function ProfileScreen() {
           <Text style={[styles.balanceAmount, { color: getBalanceColor(user?.balance || 0) }]}>
             ₹{user?.balance.toFixed(2)}
           </Text>
-          <TouchableOpacity
-            style={styles.depositButton}
-            onPress={() => setDepositModalVisible(true)}
-          >
-            <Ionicons name="add-circle" size={20} color="#fff" />
-            <Text style={styles.depositButtonText}>Add Funds</Text>
-          </TouchableOpacity>
+          {user?.role === 'admin' && (
+            <TouchableOpacity
+              style={styles.depositButton}
+              onPress={() => setDepositModalVisible(true)}
+            >
+              <Ionicons name="add-circle" size={20} color="#fff" />
+              <Text style={styles.depositButtonText}>Add Funds</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Menu Options */}

@@ -170,16 +170,18 @@ export default function PlayersScreen() {
               </View>
 
               <View style={styles.playerActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => {
-                    setSelectedPlayer(player);
-                    setDepositModalVisible(true);
-                  }}
-                >
-                  <Ionicons name="cash" size={20} color="#10b981" />
-                  <Text style={styles.actionButtonText}>Add Funds</Text>
-                </TouchableOpacity>
+                {user?.role === 'admin' && (
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => {
+                      setSelectedPlayer(player);
+                      setDepositModalVisible(true);
+                    }}
+                  >
+                    <Ionicons name="cash" size={20} color="#10b981" />
+                    <Text style={styles.actionButtonText}>Add Funds</Text>
+                  </TouchableOpacity>
+                )}
 
                 {user?.role === 'admin' && player.role !== 'admin' && (
                   <TouchableOpacity
