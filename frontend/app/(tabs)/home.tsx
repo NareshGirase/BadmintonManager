@@ -167,28 +167,30 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* All Players Balance */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Team Balance Overview</Text>
-          {players.map((player) => (
-            <View key={player.id} style={styles.playerCard}>
-              <View style={styles.playerInfo}>
-                <View style={[styles.playerAvatar, { backgroundColor: player.role === 'admin' ? '#8b5cf6' : '#3b82f6' }]}>
-                  <Ionicons name="person" size={20} color="#fff" />
+        {/* Team Balance Overview - Admin only */}
+        {user?.role === 'admin' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Team Balance Overview</Text>
+            {players.map((player) => (
+              <View key={player.id} style={styles.playerCard}>
+                <View style={styles.playerInfo}>
+                  <View style={[styles.playerAvatar, { backgroundColor: player.role === 'admin' ? '#8b5cf6' : '#3b82f6' }]}>
+                    <Ionicons name="person" size={20} color="#fff" />
+                  </View>
+                  <View style={styles.playerDetails}>
+                    <Text style={styles.playerName}>
+                      {player.name}
+                      {player.role === 'admin' && <Text style={styles.adminBadge}> • Admin</Text>}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.playerDetails}>
-                  <Text style={styles.playerName}>
-                    {player.name}
-                    {player.role === 'admin' && <Text style={styles.adminBadge}> • Admin</Text>}
-                  </Text>
-                </View>
+                <Text style={[styles.playerBalance, { color: getBalanceColor(player.balance) }]}>
+                  ₹{player.balance.toFixed(2)}
+                </Text>
               </View>
-              <Text style={[styles.playerBalance, { color: getBalanceColor(player.balance) }]}>
-                ₹{player.balance.toFixed(2)}
-              </Text>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

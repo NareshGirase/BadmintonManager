@@ -34,7 +34,12 @@ export default function MonthlyReportScreen() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/transactions/monthly-summary?month=${month}`);
       const data = await response.json();
-      setSummary(data);
+      // Non-admins only see their own summary
+      if (user?.role === 'admin') {
+        setSummary(data);
+      } else {
+        setSummary(data.filter((s: UserSummary) => s.user_name === user?.name));
+      }
     } catch (error) {
       console.error('Error fetching summary:', error);
     } finally {
@@ -113,7 +118,7 @@ export default function MonthlyReportScreen() {
             </View>
           ) : (
             <View style={styles.usersList}>
-              <Text style={styles.sectionTitle}>Player Breakdown</Text>
+              <Text style={styles.sectionTitle}>{user?.role === 'admin' ? 'Player Breakdown' : 'My Summary'}</Text>
               {summary.map((userSum, index) => (
                 <View key={index} style={styles.userCard}>
                   <View style={styles.userHeader}>

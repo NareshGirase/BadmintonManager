@@ -39,7 +39,12 @@ export default function PlayersScreen() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/players`);
       const data = await response.json();
-      setPlayers(data);
+      // Non-admins can only see their own record
+      if (user?.role === 'admin') {
+        setPlayers(data);
+      } else {
+        setPlayers(data.filter((p: Player) => p.id === user?.id));
+      }
     } catch (error) {
       console.error('Error fetching players:', error);
       Alert.alert('Error', 'Failed to load players');
@@ -126,7 +131,7 @@ export default function PlayersScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Players</Text>
+        <Text style={styles.headerTitle}>{user?.role === 'admin' ? 'Players' : 'My Details'}</Text>
         {user?.role === 'admin' && (
           <TouchableOpacity 
             style={styles.addButton}
