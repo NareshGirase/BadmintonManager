@@ -24,6 +24,8 @@ export default function PlayersScreen() {
   const [depositModalVisible, setDepositModalVisible] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
+  const [deleteTargetPlayer, setDeleteTargetPlayer] = useState<Player | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -87,47 +89,23 @@ export default function PlayersScreen() {
     }
   };
 
-  const handleDeletePlayer = async (playerId: string) => {
-    const confirmed = Platform.OS === 'web'
-      ? window.confirm('Are you sure you want to remove this player?')
-      : await new Promise<boolean>((resolve) => {
-          Alert.alert(
-            'Remove Player',
-            'Are you sure you want to remove this player?',
-            [
-              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              { text: 'Remove', style: 'destructive', onPress: () => resolve(true) },
-            ]
-          );
-        });
-
-    if (!confirmed) return;
-
+  const confirmDeletePlayer = async () => {
+    if (!deleteTargetPlayer) return;
+    setDeleting(true);
     try {
-      const response = await fetch(`${BACKEND_URL}/api/players/${playerId}`, {
+      const response = await fetch(`${BACKEND_URL}/api/players/${deleteTargetPlayer.id}`, {
         method: 'DELETE',
       });
-
       if (response.ok) {
-        if (Platform.OS === 'web') {
-          window.alert('Player removed successfully');
-        } else {
-          Alert.alert('Success', 'Player removed successfully');
-        }
-        fetchPlayers();
-      } else {
-        if (Platform.OS === 'web') {
-          window.alert('Failed to remove player');
-        } else {
-          Alert.alert('Error', 'Failed to remove player');
-        }
-      }
-    } catch (error) {
-      if (Platform.OS === 'web') {
-        window.alert('Failed to remove player');
+        setDeleteTargetPlayer(null);
+        await fetchPlayers();
       } else {
         Alert.alert('Error', 'Failed to remove player');
       }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to remove player');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -200,10 +178,13 @@ export default function PlayersScreen() {
 
                 {user?.role === 'admin' && player.role !== 'admin' && (
                   <TouchableOpacity
+                    testID={`delete-player-${player.id}`}
                     style={[styles.actionButton, styles.deleteButton]}
-                    onPress={() => handleDeletePlayer(player.id)}
+                    onPress={() => setDeleteTargetPlayer(player)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    activeOpacity={0.6}
                   >
-                    <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                    <Ionicons name="trash" size={20} color="#ef4444" />
                   </TouchableOpacity>
                 )}
               </View>
@@ -252,6 +233,47 @@ export default function PlayersScreen() {
                 onPress={handleAddDeposit}
               >
                 <Text style={styles.confirmButtonText}>Add Deposit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* Delete Player Confirmation Modal */}
+      <Modal
+        visible={deleteTargetPlayer !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteTargetPlayer(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.deleteIconContainer}>
+              <Ionicons name="warning" size={40} color="#ef4444" />
+            </View>
+            <Text style={styles.modalTitle}>Remove Player?</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to remove {deleteTargetPlayer?.name}? Their data will be preserved but they won&apos;t be able to login.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                testID="cancel-delete-player"
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setDeleteTargetPlayer(null)}
+                disabled={deleting}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="confirm-delete-player"
+                style={[styles.modalButton, styles.deleteConfirmButton]}
+                onPress={confirmDeletePlayer}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Remove</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -436,5 +458,25 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#ef4444',
+  },
+  deleteIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#7f1d1d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
   },
 });

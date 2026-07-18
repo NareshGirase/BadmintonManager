@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Modal } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +23,8 @@ export default function SessionsScreen() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -39,7 +41,6 @@ export default function SessionsScreen() {
       setSessions(data);
     } catch (error) {
       console.error('Error fetching sessions:', error);
-      Alert.alert('Error', 'Failed to load sessions');
     } finally {
       setLoading(false);
     }
@@ -51,41 +52,23 @@ export default function SessionsScreen() {
     setRefreshing(false);
   }, []);
 
-  const handleDeleteSession = async (sessionId: string) => {
-    const confirmed = Platform.OS === 'web'
-      ? window.confirm('Delete this session? Balances will be refunded to all present players.')
-      : await new Promise<boolean>((resolve) => {
-          Alert.alert(
-            'Delete Session',
-            'Are you sure you want to delete this session? Balances will be refunded.',
-            [
-              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
-            ]
-          );
-        });
-
-    if (!confirmed) return;
-
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return;
+    setDeleting(true);
     try {
-      const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}?admin_id=${user?.id}`, {
+      const response = await fetch(`${BACKEND_URL}/api/sessions/${deleteTargetId}?admin_id=${user?.id}`, {
         method: 'DELETE',
       });
-
       if (response.ok) {
-        if (Platform.OS === 'web') {
-          window.alert('Session deleted successfully');
-        } else {
-          Alert.alert('Success', 'Session deleted successfully');
-        }
-        fetchSessions();
+        setDeleteTargetId(null);
+        await fetchSessions();
       } else {
-        const err = Platform.OS === 'web' ? window.alert : (m: string) => Alert.alert('Error', m);
-        err('Failed to delete session');
+        Alert.alert('Error', 'Failed to delete session');
       }
     } catch (error) {
-      const err = Platform.OS === 'web' ? window.alert : (m: string) => Alert.alert('Error', m);
-      err('Failed to delete session');
+      Alert.alert('Error', 'Failed to delete session');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -112,6 +95,7 @@ export default function SessionsScreen() {
         <Text style={styles.headerTitle}>Sessions History</Text>
         {user?.role === 'admin' && (
           <TouchableOpacity 
+            testID="add-session-button"
             style={styles.addButton}
             onPress={() => router.push('/mark-attendance' as any)}
           >
@@ -142,8 +126,14 @@ export default function SessionsScreen() {
                     <Text style={styles.sessionDate}>{formatDate(session.date)}</Text>
                   </View>
                   {user?.role === 'admin' && (
-                    <TouchableOpacity onPress={() => handleDeleteSession(session.id)}>
-                      <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                    <TouchableOpacity 
+                      testID={`delete-session-${session.id}`}
+                      onPress={() => setDeleteTargetId(session.id)}
+                      hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                      style={styles.deleteIconButton}
+                      activeOpacity={0.6}
+                    >
+                      <Ionicons name="trash" size={22} color="#ef4444" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -178,6 +168,48 @@ export default function SessionsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={deleteTargetId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteTargetId(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="warning" size={40} color="#ef4444" />
+            </View>
+            <Text style={styles.modalTitle}>Delete Session?</Text>
+            <Text style={styles.modalMessage}>
+              This will refund the amount to all players who were present. This action cannot be undone.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                testID="cancel-delete-session"
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setDeleteTargetId(null)}
+                disabled={deleting}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="confirm-delete-session"
+                style={[styles.modalButton, styles.deleteConfirmButton]}
+                onPress={confirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -259,6 +291,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 8,
   },
+  deleteIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#7f1d1d20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sessionDetails: {
     marginBottom: 16,
   },
@@ -301,5 +341,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#10b981',
     fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+  },
+  modalIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#7f1d1d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#334155',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#ef4444',
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
