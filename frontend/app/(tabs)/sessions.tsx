@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Modal } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,11 +20,13 @@ interface Session {
 export default function SessionsScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams<{ newSessionAmount?: string }>();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -33,6 +35,16 @@ export default function SessionsScreen() {
     }
     fetchSessions();
   }, [user]);
+
+  useEffect(() => {
+    if (params.newSessionAmount) {
+      setSuccessBanner(`Session created! ₹${params.newSessionAmount} deducted per player`);
+      const t = setTimeout(() => setSuccessBanner(null), 4000);
+      // Clear param
+      router.setParams({ newSessionAmount: undefined });
+      return () => clearTimeout(t);
+    }
+  }, [params.newSessionAmount]);
 
   const fetchSessions = async () => {
     try {
@@ -91,6 +103,12 @@ export default function SessionsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {successBanner && (
+        <View style={styles.successBanner}>
+          <Ionicons name="checkmark-circle" size={20} color="#fff" />
+          <Text style={styles.successBannerText}>{successBanner}</Text>
+        </View>
+      )}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Sessions History</Text>
         {user?.role === 'admin' && (
@@ -218,6 +236,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10b981',
+    padding: 12,
+    paddingHorizontal: 16,
+  },
+  successBannerText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: '600',
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

@@ -82,16 +82,11 @@ export default function MarkAttendanceScreen() {
 
       if (response.ok) {
         const result = await response.json();
-        Alert.alert(
-          'Success',
-          `Session created! \n\nAmount per player: ₹${result.amount_per_player.toFixed(2)}`,
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        // Navigate immediately - success shown as toast-like via router push
+        router.replace({
+          pathname: '/(tabs)/sessions' as any,
+          params: { newSessionAmount: result.amount_per_player.toFixed(2) },
+        });
       } else {
         const error = await response.json();
         Alert.alert('Error', error.detail || 'Failed to create session');
