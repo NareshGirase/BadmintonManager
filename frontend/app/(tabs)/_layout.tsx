@@ -1,11 +1,14 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  // Use device inset if available, otherwise fall back to a safe minimum (Android often reports 0 for gesture nav)
-  const bottomPadding = Math.max(insets.bottom, 20);
+  // Android with edge-to-edge sometimes reports 0 inset even with nav bar visible.
+  // Force a minimum bottom padding to guarantee tabs sit above the phone nav area.
+  const androidMin = Platform.OS === 'android' ? 40 : 20;
+  const bottomPadding = Math.max(insets.bottom, androidMin);
 
   return (
     <Tabs
@@ -17,7 +20,7 @@ export default function TabsLayout() {
           backgroundColor: '#1e293b',
           borderTopColor: '#334155',
           borderTopWidth: 1,
-          height: 70 + bottomPadding,
+          height: 65 + bottomPadding,
           paddingBottom: bottomPadding,
           paddingTop: 10,
         },
