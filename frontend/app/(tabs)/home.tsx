@@ -100,8 +100,8 @@ export default function HomeScreen() {
           <Ionicons name="tennisball" size={40} color="#10b981" />
         </View>
 
-        {/* Balance Card - only for players (admin doesn't have a balance) */}
-        {user?.role !== 'admin' && (
+        {/* Balance Card - players see own; admin sees total team balance */}
+        {user?.role !== 'admin' ? (
           <View style={styles.balanceCard}>
             <View style={styles.balanceHeader}>
               <Text style={styles.balanceLabel}>Your Balance</Text>
@@ -120,6 +120,19 @@ export default function HomeScreen() {
                 <Text style={styles.warningText}>Low balance - ask admin to add funds</Text>
               </View>
             )}
+          </View>
+        ) : (
+          <View style={styles.balanceCard}>
+            <View style={styles.balanceHeader}>
+              <Text style={styles.balanceLabel}>Total Team Balance</Text>
+              <Ionicons name="wallet" size={24} color="#10b981" />
+            </View>
+            <Text style={[styles.balanceAmount, { color: '#10b981' }]}>
+              ₹{players.reduce((sum, p) => sum + p.balance, 0).toFixed(2)}
+            </Text>
+            <Text style={styles.balanceSubtext}>
+              Across {players.length} {players.length === 1 ? 'player' : 'players'}
+            </Text>
           </View>
         )}
 
@@ -251,6 +264,11 @@ const styles = StyleSheet.create({
     fontSize: 42,
     fontWeight: 'bold',
     marginBottom: 8,
+  },
+  balanceSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginTop: 4,
   },
   warningBanner: {
     flexDirection: 'row',
