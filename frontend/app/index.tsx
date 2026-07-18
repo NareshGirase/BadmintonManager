@@ -27,8 +27,11 @@ export default function LoginScreen() {
     try {
       await login(name.trim(), pin.trim());
       router.replace('/(tabs)/home');
-    } catch (error) {
-      Alert.alert('Login Failed', 'Invalid credentials. Please try again.');
+    } catch (error: any) {
+      Alert.alert(
+        'Login Failed', 
+        'Invalid name or PIN. Please check your credentials and try again.\n\nDefault Admin: Name "Admin", PIN "1234"'
+      );
     } finally {
       setIsLoading(false);
     }

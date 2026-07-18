@@ -104,7 +104,14 @@ class Notification(BaseModel):
 # Auth Routes
 @api_router.post("/auth/login")
 async def login(request: LoginRequest):
-    user = await db.users.find_one({"name": request.name, "pin": request.pin, "is_active": True})
+    # Case-insensitive name match, trim whitespace
+    name_clean = request.name.strip()
+    pin_clean = request.pin.strip()
+    user = await db.users.find_one({
+        "name": {"$regex": f"^{name_clean}$", "$options": "i"},
+        "pin": pin_clean,
+        "is_active": True
+    })
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
