@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,22 +12,14 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [depositModalVisible, setDepositModalVisible] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
-  const handleLogout = async () => {
-    const confirmed = Platform.OS === 'web'
-      ? window.confirm('Are you sure you want to logout?')
-      : await new Promise<boolean>((resolve) => {
-          Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
-            [
-              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              { text: 'Logout', style: 'destructive', onPress: () => resolve(true) },
-            ]
-          );
-        });
+  const handleLogout = () => {
+    setLogoutModalVisible(true);
+  };
 
-    if (!confirmed) return;
+  const confirmLogout = async () => {
+    setLogoutModalVisible(false);
     await logout();
     router.replace('/');
   };
@@ -204,6 +196,40 @@ export default function ProfileScreen() {
                 onPress={handleAddDeposit}
               >
                 <Text style={styles.confirmButtonText}>Add Deposit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={logoutModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLogoutModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.logoutIconContainer}>
+              <Ionicons name="log-out" size={40} color="#ef4444" />
+            </View>
+            <Text style={styles.modalTitle}>Logout?</Text>
+            <Text style={styles.modalSubtitle}>Are you sure you want to sign out?</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                testID="cancel-logout"
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setLogoutModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="confirm-logout"
+                style={[styles.modalButton, styles.logoutConfirmButton]}
+                onPress={confirmLogout}
+              >
+                <Text style={styles.confirmButtonText}>Logout</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -410,5 +436,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  logoutConfirmButton: {
+    backgroundColor: '#ef4444',
+  },
+  logoutIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#7f1d1d',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    alignSelf: 'center',
   },
 });
