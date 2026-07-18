@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { LogBox } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "@/src/contexts/AuthContext";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 
@@ -30,11 +31,13 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(tabs)" />
-      </Stack>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
