@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Modal, Platform } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -88,33 +88,47 @@ export default function PlayersScreen() {
   };
 
   const handleDeletePlayer = async (playerId: string) => {
-    Alert.alert(
-      'Remove Player',
-      'Are you sure you want to remove this player?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await fetch(`${BACKEND_URL}/api/players/${playerId}`, {
-                method: 'DELETE',
-              });
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('Are you sure you want to remove this player?')
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Remove Player',
+            'Are you sure you want to remove this player?',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Remove', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
 
-              if (response.ok) {
-                Alert.alert('Success', 'Player removed successfully');
-                fetchPlayers();
-              } else {
-                Alert.alert('Error', 'Failed to remove player');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to remove player');
-            }
-          },
-        },
-      ]
-    );
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/players/${playerId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert('Player removed successfully');
+        } else {
+          Alert.alert('Success', 'Player removed successfully');
+        }
+        fetchPlayers();
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert('Failed to remove player');
+        } else {
+          Alert.alert('Error', 'Failed to remove player');
+        }
+      }
+    } catch (error) {
+      if (Platform.OS === 'web') {
+        window.alert('Failed to remove player');
+      } else {
+        Alert.alert('Error', 'Failed to remove player');
+      }
+    }
   };
 
   const getBalanceColor = (balance: number) => {

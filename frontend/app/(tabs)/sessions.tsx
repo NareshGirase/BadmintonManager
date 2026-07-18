@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,33 +52,41 @@ export default function SessionsScreen() {
   }, []);
 
   const handleDeleteSession = async (sessionId: string) => {
-    Alert.alert(
-      'Delete Session',
-      'Are you sure you want to delete this session? Balances will be refunded.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}?admin_id=${user?.id}`, {
-                method: 'DELETE',
-              });
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('Delete this session? Balances will be refunded to all present players.')
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Delete Session',
+            'Are you sure you want to delete this session? Balances will be refunded.',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
 
-              if (response.ok) {
-                Alert.alert('Success', 'Session deleted successfully');
-                fetchSessions();
-              } else {
-                Alert.alert('Error', 'Failed to delete session');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete session');
-            }
-          },
-        },
-      ]
-    );
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}?admin_id=${user?.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        if (Platform.OS === 'web') {
+          window.alert('Session deleted successfully');
+        } else {
+          Alert.alert('Success', 'Session deleted successfully');
+        }
+        fetchSessions();
+      } else {
+        const err = Platform.OS === 'web' ? window.alert : (m: string) => Alert.alert('Error', m);
+        err('Failed to delete session');
+      }
+    } catch (error) {
+      const err = Platform.OS === 'web' ? window.alert : (m: string) => Alert.alert('Error', m);
+      err('Failed to delete session');
+    }
   };
 
   const formatDate = (dateString: string) => {
