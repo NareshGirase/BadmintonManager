@@ -137,7 +137,7 @@ export default function AddPlayerScreen() {
                   onChangeText={setPin}
                   secureTextEntry
                   keyboardType="numeric"
-                  maxLength={6}
+                  maxLength={20}
                 />
               </View>
             </View>

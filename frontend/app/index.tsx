@@ -81,7 +81,7 @@ export default function LoginScreen() {
               onChangeText={setPin}
               secureTextEntry
               keyboardType="numeric"
-              maxLength={6}
+              maxLength={20}
             />
           </View>
 
