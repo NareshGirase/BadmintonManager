@@ -248,15 +248,27 @@ async def create_session(session_data: SessionCreate, admin_id: str):
         )
         await db.transactions.insert_one(transaction.dict())
         
-        # Check balance and create notification if low
+        # Check balance and create tiered notification
         player = await db.users.find_one({"_id": ObjectId(player_id)})
-        if player and player["balance"] < 200:  # Threshold: 200
-            notification = Notification(
-                user_id=player_id,
-                message=f"Low balance alert! Your balance is ₹{player['balance']:.2f}. Please add funds.",
-                type="low_balance"
-            )
-            await db.notifications.insert_one(notification.dict())
+        if player:
+            balance = player["balance"]
+            message = None
+            if balance < 0:
+                message = f"Critical! Your balance is ₹{balance:.2f} (negative). Please add funds immediately."
+            elif balance == 0:
+                message = "Your balance is ₹0. Please add funds to continue playing."
+            elif balance < 100:
+                message = f"Very low balance! Only ₹{balance:.2f} left. Please add funds."
+            elif balance < 200:
+                message = f"Low balance alert. Your balance is ₹{balance:.2f}. Consider adding funds."
+            
+            if message:
+                notification = Notification(
+                    user_id=player_id,
+                    message=message,
+                    type="low_balance"
+                )
+                await db.notifications.insert_one(notification.dict())
     
     return {
         "id": session_id,
