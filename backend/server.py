@@ -127,13 +127,29 @@ async def login(request: LoginRequest):
 
 @api_router.post("/auth/register")
 async def register(user: User):
-    # Check if user already exists
-    existing = await db.users.find_one({"name": user.name})
+    print("Register request received:", user.dict())
+    # Check if an active user with the same name already exists
+    existing = await db.users.find_one(
+        {
+        "name": user.name,
+         "is_active": True
+        }
+        )
     if existing:
         raise HTTPException(status_code=400, detail="User already exists")
     
     user_dict = user.dict()
     result = await db.users.insert_one(user_dict)
+    # Create initial balance transaction
+    if user.balance > 0:
+      initial_transaction = Transaction(
+        user_id=str(result.inserted_id),
+        amount=user.balance,
+        type="deposit",
+        description="Initial balance"
+    )
+
+    await db.transactions.insert_one(initial_transaction.dict())
     
     return {
         "id": str(result.inserted_id),
@@ -244,7 +260,7 @@ async def create_session(session_data: SessionCreate, admin_id: str):
             amount=amount_per_player,
             type="deduction",
             session_id=session_id,
-            description=f"Court fee for {session_data.date}"
+            description=f"Court fee"
         )
         await db.transactions.insert_one(transaction.dict())
         
@@ -355,7 +371,7 @@ async def update_session(session_id: str, update_data: SessionUpdate, admin_id: 
             amount=amount_per_player,
             type="deduction",
             session_id=session_id,
-            description=f"Court fee for {new_date}"
+            description=f"Court fee"
         )
         await db.transactions.insert_one(transaction.dict())
     
@@ -466,6 +482,28 @@ async def get_monthly_summary(month: str):
         user_summary[user_id]["net"] = user_summary[user_id]["total_deposits"] - user_summary[user_id]["total_deductions"]
     
     return list(user_summary.values())
+
+
+@api_router.get("/transactions")
+async def get_all_transactions():
+    transactions = await db.transactions.find().sort("date", -1).to_list(1000)
+
+    result = []
+
+    for t in transactions:
+        user = await db.users.find_one({"_id": ObjectId(t["user_id"])})
+
+        result.append({
+            "id": str(t["_id"]),
+            "user_id": t["user_id"],
+            "user_name": user["name"] if user else "Unknown",
+            "amount": t["amount"],
+            "type": t["type"],
+            "description": t["description"],
+            "date": t["date"].isoformat()
+        })
+
+    return result
 
 
 # Notification Routes

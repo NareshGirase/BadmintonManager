@@ -9,8 +9,10 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 interface Transaction {
   id: string;
+  user_id?: string;
+  user_name?: string;
   amount: number;
-  type: string;
+  type: 'deposit' | 'deduction';
   description: string;
   date: string;
 }
@@ -31,16 +33,29 @@ export default function TransactionsScreen() {
   }, [user]);
 
   const fetchTransactions = async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/transactions/user/${user?.id}`);
-      const data = await response.json();
-      setTransactions(data);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    } finally {
-      setLoading(false);
+  try {
+    let url = '';
+
+    if (user?.role === 'admin') {
+      url = `${BACKEND_URL}/api/transactions`;
+    } else {
+      url = `${BACKEND_URL}/api/transactions/user/${user?.id}`;
     }
-  };
+
+    console.log("Fetching:", url);
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    console.log("Transactions:", data);
+
+    setTransactions(data);
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -102,7 +117,19 @@ export default function TransactionsScreen() {
                   />
                 </View>
                 <View style={styles.transactionDetails}>
-                  <Text style={styles.transactionDescription}>{transaction.description}</Text>
+                  {transaction.user_name && (
+  <Text style={styles.playerName}>
+    {transaction.user_name}
+  </Text>
+)}
+
+<Text style={styles.transactionDescription}>
+  {transaction.description.replace(/ for .*/, '')}
+</Text>
+
+<Text style={styles.transactionType}>
+  {transaction.type === 'deposit' ? 'Deposit' : 'Deduction'}
+</Text>
                   <Text style={styles.transactionDate}>{formatDate(transaction.date)}</Text>
                 </View>
                 <Text style={[
@@ -125,12 +152,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f172a',
   },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#0f172a',
   },
+
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -139,39 +168,47 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
   },
+
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
   },
+
   scrollView: {
     flex: 1,
   },
+
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 64,
   },
+
   emptyText: {
     fontSize: 20,
     fontWeight: '600',
     color: '#9ca3af',
     marginTop: 16,
   },
+
   emptySubtext: {
     fontSize: 14,
     color: '#6b7280',
     marginTop: 8,
   },
+
   transactionsList: {
     padding: 16,
   },
+
   transactionCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -182,6 +219,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
+
   transactionIcon: {
     width: 48,
     height: 48,
@@ -190,20 +228,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   transactionDetails: {
     flex: 1,
     marginLeft: 16,
   },
+
+  playerName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#60a5fa',
+    marginBottom: 4,
+  },
+
   transactionDescription: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
     marginBottom: 4,
   },
+
+  transactionType: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 4,
+  },
+
   transactionDate: {
     fontSize: 12,
     color: '#9ca3af',
+    marginTop: 4,
   },
+
   transactionAmount: {
     fontSize: 18,
     fontWeight: 'bold',
