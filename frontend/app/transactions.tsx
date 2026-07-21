@@ -34,6 +34,7 @@ export default function TransactionsScreen() {
 
   const fetchTransactions = async () => {
   try {
+    console.log("CURRENT USER:", user);
     let url = '';
 
     if (user?.role === 'admin') {

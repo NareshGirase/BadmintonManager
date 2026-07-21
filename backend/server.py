@@ -128,15 +128,17 @@ async def login(request: LoginRequest):
 @api_router.post("/auth/register")
 async def register(user: User):
     print("Register request received:", user.dict())
-    # Check if an active user with the same name already exists
+    # Check existing user by phone number
     existing = await db.users.find_one(
-        {
-        "name": user.name,
-         "is_active": True
-        }
-        )
-    if existing:
-        raise HTTPException(status_code=400, detail="User already exists")
+    {
+        "phone": user.phone
+    }
+)
+    if existing and existing.get("is_active"):
+      raise HTTPException(
+        status_code=400,
+        detail="User already exists with this phone number"
+    )
     
     user_dict = user.dict()
     result = await db.users.insert_one(user_dict)
@@ -260,7 +262,7 @@ async def create_session(session_data: SessionCreate, admin_id: str):
             amount=amount_per_player,
             type="deduction",
             session_id=session_id,
-            description=f"Court fee"
+            description=f"Court fee for {session_data.date}"
         )
         await db.transactions.insert_one(transaction.dict())
         
@@ -371,7 +373,7 @@ async def update_session(session_id: str, update_data: SessionUpdate, admin_id: 
             amount=amount_per_player,
             type="deduction",
             session_id=session_id,
-            description=f"Court fee"
+            description=f"Court fee for {new_date}"
         )
         await db.transactions.insert_one(transaction.dict())
     
