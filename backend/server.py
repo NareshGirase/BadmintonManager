@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, status
+from fastapi import FastAPI, APIRouter, HTTPException, status, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -7,8 +7,11 @@ import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from bson import ObjectId
+from jose import jwt
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
 
 
 ROOT_DIR = Path(__file__).parent
@@ -18,7 +21,57 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+JWT_SECRET = os.environ.get("JWT_SECRET", "change_this_secret")
+JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+#print("JWT SECRET:", JWT_SECRET)
+#print("JWT ALGORITHM:", JWT_ALGORITHM)
 
+def create_access_token(data: dict):
+    token_data = data.copy()
+
+    expire = datetime.utcnow() + timedelta(days=30)
+
+    token_data.update({
+        "exp": expire
+    })
+
+    return jwt.encode(
+        token_data,
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM
+    )
+security = HTTPBearer()
+
+
+async def verify_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+
+    print("TOKEN RECEIVED:")
+    print(token)
+
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM]
+        )
+
+        print("TOKEN PAYLOAD:")
+        print(payload)
+
+        return payload
+
+    except Exception as e:
+        print("JWT ERROR:")
+        print(str(e))
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+    
 # Create the main app without a prefix
 app = FastAPI()
 
@@ -115,14 +168,20 @@ async def login(request: LoginRequest):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    token = create_access_token({
+    "user_id": str(user["_id"]),
+    "role": user["role"]
+})
+
     return {
-        "id": str(user["_id"]),
-        "name": user["name"],
-        "role": user["role"],
-        "balance": user["balance"],
-        "phone": user.get("phone"),
-        "is_active": user["is_active"]
-    }
+    "token": token,
+    "id": str(user["_id"]),
+    "name": user["name"],
+    "role": user["role"],
+    "balance": user["balance"],
+    "phone": user.get("phone"),
+    "is_active": user["is_active"]
+}
 
 
 @api_router.post("/auth/register")
@@ -433,10 +492,19 @@ async def add_deposit(deposit: DepositRequest):
 
 
 # Transaction Routes
-@api_router.get("/transactions/user/{user_id}")
-async def get_user_transactions(user_id: str, limit: int = 100):
-    transactions = await db.transactions.find({"user_id": user_id}).sort("date", -1).limit(limit).to_list(limit)
-    
+@api_router.get("/transactions/my")
+async def get_my_transactions(
+    user=Depends(verify_token),
+    limit: int = 100
+):
+    user_id = user["user_id"]
+
+    transactions = await db.transactions.find(
+        {"user_id": user_id}
+    ).sort("date", -1).limit(limit).to_list(limit)
+    print("USER ID:", user_id)
+    print("TRANSACTIONS:", transactions)
+
     return [
         {
             "id": str(t["_id"]),
@@ -447,7 +515,6 @@ async def get_user_transactions(user_id: str, limit: int = 100):
         }
         for t in transactions
     ]
-
 
 @api_router.get("/transactions/monthly-summary")
 async def get_monthly_summary(month: str):
@@ -487,7 +554,7 @@ async def get_monthly_summary(month: str):
 
 
 @api_router.get("/transactions")
-async def get_all_transactions():
+async def get_all_transactions(user=Depends(verify_token)):
     transactions = await db.transactions.find().sort("date", -1).to_list(1000)
 
     result = []

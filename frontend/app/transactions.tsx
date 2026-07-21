@@ -4,6 +4,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getToken } from '@/src/utils/storage/auth';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -40,12 +41,18 @@ export default function TransactionsScreen() {
     if (user?.role === 'admin') {
       url = `${BACKEND_URL}/api/transactions`;
     } else {
-      url = `${BACKEND_URL}/api/transactions/user/${user?.id}`;
+      url = `${BACKEND_URL}/api/transactions/my`;
     }
 
     console.log("Fetching:", url);
 
-    const response = await fetch(url);
+    const token = await getToken();
+
+    const response = await fetch(url, {
+     headers: {
+      Authorization: `Bearer ${token}`,
+  },
+});
     const data = await response.json();
 
     console.log("Transactions:", data);

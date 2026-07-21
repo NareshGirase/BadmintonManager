@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { storage } from '@/src/utils/storage';
 
@@ -86,6 +87,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const userData = await response.json();
+    if (userData.token) 
+      {
+        await AsyncStorage.setItem("token", userData.token);
+      }
     setUser(userData);
     await storage.setItem('user', JSON.stringify(userData));
   };
