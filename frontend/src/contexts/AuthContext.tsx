@@ -72,28 +72,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (name: string, pin: string) => {
-    const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-    
-    const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name, pin }),
-    });
+  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-    if (!response.ok) {
-      throw new Error('Invalid credentials');
-    }
+  console.log("LOGIN BACKEND URL:", BACKEND_URL);
+  console.log("LOGIN NAME:", name);
 
-    const userData = await response.json();
-    if (userData.token) 
-      {
-        await AsyncStorage.setItem("token", userData.token);
-      }
-    setUser(userData);
-    await storage.setItem('user', JSON.stringify(userData));
-  };
+  const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name, pin }),
+  });
+
+  console.log("LOGIN STATUS:", response.status);
+
+  if (!response.ok) {
+    throw new Error('Invalid credentials');
+  }
+
+  const userData = await response.json();
+
+  if (userData.token) {
+    await AsyncStorage.setItem("token", userData.token);
+  }
+
+  setUser(userData);
+  await storage.setItem('user', JSON.stringify(userData));
+};
 
   const logout = async () => {
     setUser(null);
