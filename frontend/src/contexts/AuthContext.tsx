@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (name: string, pin: string) => {
-  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+   const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
   console.log("LOGIN BACKEND URL:", BACKEND_URL);
   console.log("LOGIN NAME:", name);
@@ -117,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     if (!user) return;
     const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+    console.log("USING BACKEND:", BACKEND_URL);
     try {
       const res = await fetch(`${BACKEND_URL}/api/players/${user.id}`);
       if (res.ok) {

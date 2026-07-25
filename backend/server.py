@@ -157,6 +157,7 @@ class Notification(BaseModel):
 # Auth Routes
 @api_router.post("/auth/login")
 async def login(request: LoginRequest):
+    print("LOGIN RECEIVED:", request.name, request.pin)
     # Case-insensitive name match, trim whitespace
     name_clean = request.name.strip()
     pin_clean = request.pin.strip()
