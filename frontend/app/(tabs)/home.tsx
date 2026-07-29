@@ -48,7 +48,7 @@ export default function HomeScreen() {
       const notificationsData = await notificationsRes.json();
 
       // Exclude admin from the players list (admin doesn't play)
-      setPlayers(playersData.filter((p: Player) => p.role !== 'admin'));
+      setPlayers(playersData);
       setNotifications(notificationsData.filter((n: Notification) => !n.read));
     } catch (error) {
       console.error('Error fetching data:', error);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Modal } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -35,6 +35,14 @@ export default function SessionsScreen() {
     }
     fetchSessions();
   }, [user]);
+  
+  useFocusEffect(
+  useCallback(() => {
+    if (user) {
+      fetchSessions();
+    }
+  }, [user])
+);
 
   useEffect(() => {
     if (params.newSessionAmount) {
@@ -111,15 +119,6 @@ export default function SessionsScreen() {
       )}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Sessions History</Text>
-        {user?.role === 'admin' && (
-          <TouchableOpacity 
-            testID="add-session-button"
-            style={styles.addButton}
-            onPress={() => router.push('/mark-attendance' as any)}
-          >
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
-        )}
       </View>
 
       <ScrollView
@@ -139,23 +138,49 @@ export default function SessionsScreen() {
             {sessions.map((session) => (
               <View key={session.id} style={styles.sessionCard}>
                 <View style={styles.sessionHeader}>
-                  <View style={styles.dateContainer}>
-                    <Ionicons name="calendar" size={20} color="#10b981" />
-                    <Text style={styles.sessionDate}>{formatDate(session.date)}</Text>
-                  </View>
-                  {user?.role === 'admin' && (
-                    <TouchableOpacity 
-                      testID={`delete-session-${session.id}`}
-                      onPress={() => setDeleteTargetId(session.id)}
-                      hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                      style={styles.deleteIconButton}
-                      activeOpacity={0.6}
-                    >
-                      <Ionicons name="trash" size={22} color="#ef4444" />
-                    </TouchableOpacity>
-                  )}
-                </View>
+  <View style={styles.dateContainer}>
+    <Ionicons name="calendar" size={20} color="#10b981" />
+    <Text style={styles.sessionDate}>
+      {formatDate(session.date)}
+    </Text>
+  </View>
 
+  {user?.role === 'admin' && (
+  <View style={styles.adminActions}>
+    <TouchableOpacity
+      style={styles.editIconButton}
+      activeOpacity={0.7}
+      onPress={() =>
+        router.push({
+          pathname: '/edit-session',
+          params: {
+            sessionId: session.id,
+          },
+        } as any)
+      }
+    >
+      <Ionicons
+        name="create-outline"
+        size={22}
+        color="#10b981"
+      />
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      testID={`delete-session-${session.id}`}
+      style={styles.deleteIconButton}
+      activeOpacity={0.7}
+      onPress={() => setDeleteTargetId(session.id)}
+    >
+      <Ionicons
+        name="trash-outline"
+        size={22}
+        color="#ef4444"
+      />
+    </TouchableOpacity>
+  </View>
+)}
+</View> 
                 <View style={styles.sessionDetails}>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Court Fee:</Text>
@@ -439,5 +464,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  editIconButton: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: '#064e3b',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: 8,
+},
+  adminActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });

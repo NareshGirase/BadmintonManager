@@ -187,32 +187,39 @@ async def login(request: LoginRequest):
 
 @api_router.post("/auth/register")
 async def register(user: User):
-    print("Register request received:", user.dict())
+    print("Register request received:", user.model_dump())
+
     # Check existing user by phone number
     existing = await db.users.find_one(
-    {
-        "phone": user.phone
-    }
-)
-    if existing and existing.get("is_active"):
-      raise HTTPException(
-        status_code=400,
-        detail="User already exists with this phone number"
-    )
-    
-    user_dict = user.dict()
-    result = await db.users.insert_one(user_dict)
-    # Create initial balance transaction
-    if user.balance > 0:
-      initial_transaction = Transaction(
-        user_id=str(result.inserted_id),
-        amount=user.balance,
-        type="deposit",
-        description="Initial balance"
+        {
+            "phone": user.phone
+        }
     )
 
-    await db.transactions.insert_one(initial_transaction.dict())
-    
+    if existing and existing.get("is_active"):
+        raise HTTPException(
+            status_code=400,
+            detail="User already exists with this phone number"
+        )
+
+    # Create user
+    user_dict = user.model_dump()
+
+    result = await db.users.insert_one(user_dict)
+
+    # Create initial balance transaction only if balance > 0
+    if user.balance > 0:
+        initial_transaction = Transaction(
+            user_id=str(result.inserted_id),
+            amount=user.balance,
+            type="deposit",
+            description="Initial balance"
+        )
+
+        await db.transactions.insert_one(
+            initial_transaction.model_dump()
+        )
+
     return {
         "id": str(result.inserted_id),
         "name": user.name,
@@ -380,6 +387,21 @@ async def get_sessions(limit: int = 50):
     
     return result
 
+@api_router.get("/sessions/{session_id}")
+async def get_session(session_id: str):
+    session = await db.sessions.find_one({"_id": ObjectId(session_id)})
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return {
+        "id": str(session["_id"]),
+        "date": session["date"],
+        "court_fee": session["court_fee"],
+        "players_present": session["players_present"],
+        "amount_per_player": session["amount_per_player"],
+        "created_at": session["created_at"].isoformat(),
+    }
 
 @api_router.put("/sessions/{session_id}")
 async def update_session(session_id: str, update_data: SessionUpdate, admin_id: str):
@@ -451,13 +473,7 @@ async def delete_session(session_id: str, admin_id: str):
     session = await db.sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
-    # Reverse transactions
-    for player_id in session["players_present"]:
-        await db.users.update_one(
-            {"_id": ObjectId(player_id)},
-            {"$inc": {"balance": session["amount_per_player"]}}
-        )
+ 
     
     # Delete transactions
     await db.transactions.delete_many({"session_id": session_id})

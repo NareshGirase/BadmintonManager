@@ -39,19 +39,21 @@ export default function MarkAttendanceScreen() {
     fetchPlayers();
   }, [user]);
 
-  const fetchPlayers = async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/players`);
-      const data = await response.json();
-      // Admin doesn't play - exclude from selection
-      setPlayers(data.filter((p: Player) => p.role !== 'admin'));
-    } catch (error) {
-      console.error('Error fetching players:', error);
-      setErrorMessage('Failed to load players');
-    } finally {
-      setLoading(false);
-    }
-  };
+ const fetchPlayers = async () => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/players`);
+    const data = await response.json();
+
+    // Include admin also
+    setPlayers(data);
+
+  } catch (error) {
+    console.error('Error fetching players:', error);
+    setErrorMessage('Failed to load players');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const togglePlayer = (playerId: string) => {
     if (selectedPlayers.includes(playerId)) {
@@ -126,154 +128,295 @@ export default function MarkAttendanceScreen() {
     (parseFloat(courtFee) / selectedPlayers.length).toFixed(2) : '0.00';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView 
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+  <SafeAreaView style={styles.container} edges={['top']}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>
+          Mark Attendance
+        </Text>
+
+        <View style={{ width: 40 }} />
+      </View>
+
+
+      {errorMessage && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle" size={20} color="#fff" />
+
+          <Text style={styles.errorBannerText}>
+            {errorMessage}
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => setErrorMessage(null)}
+          >
+            <Ionicons name="close" size={20} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mark Attendance</Text>
-          <View style={{ width: 40 }} />
+        </View>
+      )}
+
+
+      <ScrollView style={styles.scrollView}>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>
+            Date
+          </Text>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="calendar"
+              size={20}
+              color="#9ca3af"
+              style={styles.inputIcon}
+            />
+
+            <TextInput
+              style={styles.input}
+              value={date}
+              onChangeText={setDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#6b7280"
+            />
+          </View>
         </View>
 
-        {/* Error Banner */}
-        {errorMessage && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={20} color="#fff" />
-            <Text style={styles.errorBannerText}>{errorMessage}</Text>
-            <TouchableOpacity onPress={() => setErrorMessage(null)}>
-              <Ionicons name="close" size={20} color="#fff" />
-            </TouchableOpacity>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>
+            Court Fee (₹)
+          </Text>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="cash"
+              size={20}
+              color="#9ca3af"
+              style={styles.inputIcon}
+            />
+
+            <TextInput
+              style={styles.input}
+              value={courtFee}
+              onChangeText={setCourtFee}
+              placeholder="Enter court fee"
+              placeholderTextColor="#6b7280"
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+
+
+        {selectedPlayers.length > 0 && courtFee !== '' && (
+          <View style={styles.costCard}>
+
+            <Text style={styles.costLabel}>
+              Cost per player:
+            </Text>
+
+            <Text style={styles.costAmount}>
+              ₹{amountPerPlayer}
+            </Text>
+
+            <Text style={styles.costSubtext}>
+              {selectedPlayers.length} {selectedPlayers.length === 1 ? 'player' : 'players'} selected
+            </Text>
+
           </View>
         )}
 
-        <ScrollView style={styles.scrollView}>
-          {/* Date Input */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Date</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="calendar" size={20} color="#9ca3af" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={date}
-                onChangeText={setDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#6b7280"
-              />
-            </View>
-          </View>
 
-          {/* Court Fee Input */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Court Fee (₹)</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="cash" size={20} color="#9ca3af" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={courtFee}
-                onChangeText={setCourtFee}
-                placeholder="Enter court fee"
-                placeholderTextColor="#6b7280"
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
+        <View style={styles.section}>
 
-          {/* Cost Per Player Display */}
-          {selectedPlayers.length > 0 && courtFee && (
-            <View style={styles.costCard}>
-              <Text style={styles.costLabel}>Cost per player:</Text>
-              <Text style={styles.costAmount}>₹{amountPerPlayer}</Text>
-              <Text style={styles.costSubtext}>
-                ({selectedPlayers.length} {selectedPlayers.length === 1 ? 'player' : 'players'} selected)
+          <Text style={styles.label}>
+            Select Players Present
+          </Text>
+
+
+          {players.map((player) => (
+
+            <TouchableOpacity
+              key={player.id}
+              style={[
+                styles.playerItem,
+                selectedPlayers.includes(player.id)
+                  ? styles.playerItemSelected
+                  : null
+              ]}
+              onPress={() => togglePlayer(player.id)}
+            >
+
+              <View style={styles.playerInfo}>
+
+                <View
+                  style={[
+                    styles.playerAvatar,
+                    {
+                      backgroundColor:
+                        player.role === 'admin'
+                          ? '#8b5cf6'
+                          : '#3b82f6'
+                    }
+                  ]}
+                >
+                  <Ionicons
+                    name="person"
+                    size={20}
+                    color="#fff"
+                  />
+                </View>
+
+
+                <View style={styles.playerDetails}>
+
+                  <Text style={styles.playerName}>
+                    {String(player.name || '')}
+                  </Text>
+
+
+                  <Text style={styles.playerBalance}>
+                    Balance: ₹{Number(player.balance || 0).toFixed(2)}
+                  </Text>
+
+                </View>
+
+              </View>
+
+
+              <View
+                style={[
+                  styles.checkbox,
+                  selectedPlayers.includes(player.id)
+                    ? styles.checkboxSelected
+                    : null
+                ]}
+              >
+
+                {selectedPlayers.includes(player.id) && (
+                  <Ionicons
+                    name="checkmark"
+                    size={20}
+                    color="#fff"
+                  />
+                )}
+
+              </View>
+
+
+            </TouchableOpacity>
+
+          ))}
+
+        </View>
+
+
+      </ScrollView>
+
+
+      <View style={styles.footer}>
+
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            submitting ? styles.submitButtonDisabled : null
+          ]}
+          onPress={handleSubmit}
+          disabled={submitting}
+        >
+
+          {submitting ? (
+
+            <ActivityIndicator color="#fff" />
+
+          ) : (
+
+            <View style={styles.submitContent}>
+
+              <Ionicons
+                name="checkmark-circle"
+                size={24}
+                color="#fff"
+              />
+
+              <Text style={styles.submitButtonText}>
+                Create Session
               </Text>
+
             </View>
+
           )}
 
-          {/* Players Selection */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Select Players Present</Text>
-            {players.map((player) => (
-              <TouchableOpacity
-                key={player.id}
-                style={[
-                  styles.playerItem,
-                  selectedPlayers.includes(player.id) && styles.playerItemSelected,
-                ]}
-                onPress={() => togglePlayer(player.id)}
-              >
-                <View style={styles.playerInfo}>
-                  <View style={[styles.playerAvatar, { backgroundColor: player.role === 'admin' ? '#8b5cf6' : '#3b82f6' }]}>
-                    <Ionicons name="person" size={20} color="#fff" />
-                  </View>
-                  <View style={styles.playerDetails}>
-                    <Text style={styles.playerName}>{player.name}</Text>
-                    <Text style={styles.playerBalance}>Balance: ₹{player.balance.toFixed(2)}</Text>
-                  </View>
-                </View>
-                <View style={[
-                  styles.checkbox,
-                  selectedPlayers.includes(player.id) && styles.checkboxSelected,
-                ]}>
-                  {selectedPlayers.includes(player.id) && (
-                    <Ionicons name="checkmark" size={20} color="#fff" />
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+        </TouchableOpacity>
 
-        {/* Submit Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={24} color="#fff" />
-                <Text style={styles.submitButtonText}>Create Session</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+      </View>
 
-      {/* Stale Session Modal */}
+
       <Modal
         visible={staleSessionModal}
         transparent
         animationType="fade"
         onRequestClose={() => setStaleSessionModal(false)}
       >
+
         <View style={styles.modalOverlay}>
+
           <View style={styles.modalContent}>
+
             <View style={styles.modalIconContainer}>
-              <Ionicons name="warning" size={40} color="#f59e0b" />
+              <Ionicons
+                name="warning"
+                size={40}
+                color="#f59e0b"
+              />
             </View>
-            <Text style={styles.modalTitle}>Session Expired</Text>
+
+
+            <Text style={styles.modalTitle}>
+              Session Expired
+            </Text>
+
+
             <Text style={styles.modalMessage}>
               Your session appears to be outdated. Please login again to continue.
             </Text>
+
+
             <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonPrimary]}
+              style={[
+                styles.modalButton,
+                styles.modalButtonPrimary
+              ]}
               onPress={handleReLogin}
             >
-              <Text style={styles.modalButtonText}>Login Again</Text>
+
+              <Text style={styles.modalButtonText}>
+                Login Again
+              </Text>
+
             </TouchableOpacity>
+
+
           </View>
+
         </View>
+
       </Modal>
-    </SafeAreaView>
-  );
+
+
+    </KeyboardAvoidingView>
+  </SafeAreaView>
+);
 }
 
 const styles = StyleSheet.create({
@@ -497,6 +640,11 @@ const styles = StyleSheet.create({
   submitButtonDisabled: {
     opacity: 0.6,
   },
+  submitContent: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
   submitButtonText: {
     color: '#fff',
     fontSize: 18,

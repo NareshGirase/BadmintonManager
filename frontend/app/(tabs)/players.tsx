@@ -40,13 +40,13 @@ export default function PlayersScreen() {
       const response = await fetch(`${BACKEND_URL}/api/players`);
       const data = await response.json();
       // Exclude admin from list (admin isn't a player)
-      const nonAdmin = data.filter((p: Player) => p.role !== 'admin');
-      // Non-admins can only see their own record
       if (user?.role === 'admin') {
-        setPlayers(nonAdmin);
+        // Admin can see everyone including himself
+        setPlayers(data);
       } else {
-        setPlayers(nonAdmin.filter((p: Player) => p.id === user?.id));
-      }
+  // Player can see only his own details
+      setPlayers(data.filter((p: Player) => p.id === user?.id));
+}
     } catch (error) {
       console.error('Error fetching players:', error);
       Alert.alert('Error', 'Failed to load players');
