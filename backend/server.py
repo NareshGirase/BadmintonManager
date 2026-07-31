@@ -595,7 +595,12 @@ async def get_all_transactions(user=Depends(verify_token)):
 # Notification Routes
 @api_router.get("/notifications/user/{user_id}")
 async def get_user_notifications(user_id: str):
-    notifications = await db.notifications.find({"user_id": user_id}).sort("created_at", -1).to_list(100)
+    notifications = await db.notifications.find(
+    {
+        "user_id": user_id,
+        "read": False
+    }
+).sort("created_at", -1).to_list(100)
     
     return [
         {

@@ -1,9 +1,45 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+
+  const [notificationCount, setNotificationCount] = useState(0);
+
+useFocusEffect(
+  useCallback(() => {
+
+    if (!user?.id) return;
+
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/notifications/user/${user.id}`
+        );
+
+        const data = await response.json();
+
+        const unread = data.filter(
+          (notification: any) => !notification.read
+        );
+
+        setNotificationCount(unread.length);
+
+      } catch (error) {
+        console.log("Notification error:", error);
+      }
+    };
+
+    fetchNotifications();
+
+  }, [user])
+);
 
   return (
     <Tabs
@@ -36,14 +72,24 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="sessions"
-        options={{
-          title: 'Sessions',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" size={size} color={color} />
-          ),
-        }}
+  name="notifications"
+  options={{
+    title: "Notifications",
+
+    tabBarBadge:
+      notificationCount > 0
+        ? notificationCount
+        : undefined,
+
+    tabBarIcon: ({ color, size }) => (
+      <Ionicons
+        name="notifications"
+        size={size}
+        color={color}
       />
+    ),
+  }}
+/>
       <Tabs.Screen
         name="players"
         options={{
@@ -59,6 +105,15 @@ export default function TabsLayout() {
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="sessions"
+        options={{
+          title: 'Sessions',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar" size={size} color={color} />
           ),
         }}
       />

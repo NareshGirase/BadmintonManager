@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator} from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,18 +14,10 @@ interface Player {
   role: string;
 }
 
-interface Notification {
-  id: string;
-  message: string;
-  type: string;
-  read: boolean;
-}
-
 export default function HomeScreen() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -39,17 +31,13 @@ export default function HomeScreen() {
 
   const fetchData = async () => {
     try {
-      const [playersRes, notificationsRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/players`),
-        fetch(`${BACKEND_URL}/api/notifications/user/${user?.id}`),
-      ]);
+      const playersRes = await fetch(
+  `${BACKEND_URL}/api/players`
+);
 
-      const playersData = await playersRes.json();
-      const notificationsData = await notificationsRes.json();
+const playersData = await playersRes.json();
 
-      // Exclude admin from the players list (admin doesn't play)
-      setPlayers(playersData);
-      setNotifications(notificationsData.filter((n: Notification) => !n.read));
+setPlayers(playersData);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -133,19 +121,6 @@ export default function HomeScreen() {
             <Text style={styles.balanceSubtext}>
               Across {players.length} {players.length === 1 ? 'player' : 'players'}
             </Text>
-          </View>
-        )}
-
-        {/* Notifications */}
-        {notifications.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notifications</Text>
-            {notifications.slice(0, 3).map((notification) => (
-              <View key={notification.id} style={styles.notificationCard}>
-                <Ionicons name="notifications" size={20} color="#f59e0b" />
-                <Text style={styles.notificationText}>{notification.message}</Text>
-              </View>
-            ))}
           </View>
         )}
 
@@ -292,22 +267,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 16,
   },
-  notificationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  notificationText: {
-    flex: 1,
-    marginLeft: 12,
-    color: '#e5e7eb',
-    fontSize: 14,
-  },
+
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
