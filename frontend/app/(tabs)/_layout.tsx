@@ -8,9 +8,33 @@ import { useCallback } from 'react';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, notificationRefresh } = useAuth();
 
   const [notificationCount, setNotificationCount] = useState(0);
+  const handleNotificationBellPress = async () => {
+  // Immediately remove the badge
+  // setNotificationCount(0);
+
+  if (!user?.id) return;
+
+  try {
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/notifications/user/${user.id}/read-all`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.log("Failed to mark notifications as read");
+    }
+  } catch (error) {
+    console.log("Notification bell error:", error);
+  }
+};
 
 useFocusEffect(
   useCallback(() => {
@@ -25,11 +49,11 @@ useFocusEffect(
 
         const data = await response.json();
 
-        const unread = data.filter(
-          (notification: any) => !notification.read
-        );
+        const unreadCount = data.filter(
+        (item: any) => item.read === false
+        ).length;
 
-        setNotificationCount(unread.length);
+        setNotificationCount(unreadCount);
 
       } catch (error) {
         console.log("Notification error:", error);
@@ -38,7 +62,7 @@ useFocusEffect(
 
     fetchNotifications();
 
-  }, [user])
+  }, [user,notificationRefresh])
 );
 
   return (
@@ -73,6 +97,17 @@ useFocusEffect(
       />
       <Tabs.Screen
   name="notifications"
+  listeners={{
+    tabPress: () => {
+      console.log("🔔 NOTIFICATION BELL CLICKED");
+
+      // Immediately remove the badge
+      setNotificationCount(0);
+
+      // Mark all notifications as read in backend
+      handleNotificationBellPress();
+    },
+  }}
   options={{
     title: "Notifications",
 

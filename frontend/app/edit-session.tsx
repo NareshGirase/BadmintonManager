@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/src/contexts/AuthContext';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -25,6 +28,7 @@ export default function EditSessionScreen() {
   const [courtFee, setCourtFee] = useState('');
   const [date, setDate] = useState('');
   const [players, setPlayers] = useState<string[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
   if(sessionId && user){
@@ -50,7 +54,46 @@ export default function EditSessionScreen() {
       setLoading(false);
     }
   };
+  const parseDate = (dateString: string) => {
+  if (!dateString) {
+    return new Date();
+  }
 
+  const [year, month, day] = dateString.split('-').map(Number);
+
+  return new Date(year, month - 1, day);
+};
+
+  const formatDateForBackend = (selectedDate: Date) => {
+  const year = selectedDate.getFullYear();
+  const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+  const day = String(selectedDate.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateForDisplay = (dateString: string) => {
+  if (!dateString) {
+    return 'Select date';
+  }
+
+  return parseDate(dateString).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const handleDateChange = (
+  event: any,
+  selectedDate?: Date
+) => {
+  setShowDatePicker(false);
+
+  if (selectedDate) {
+    setDate(formatDateForBackend(selectedDate));
+  }
+};
 
   const updateSession = async () => {
     setSaving(true);
@@ -109,16 +152,64 @@ export default function EditSessionScreen() {
       </Text>
 
 
-      <Text style={styles.label}>
-        Date
+<Text style={styles.label}>
+  Date
+</Text>
+
+{Platform.OS === 'web' ? (
+  <View style={styles.dateInput}>
+    <Ionicons
+      name="calendar"
+      size={20}
+      color="#9ca3af"
+      style={{ marginRight: 10 }}
+    />
+
+    <input
+      type="date"
+      value={date}
+      onChange={(e) => setDate(e.target.value)}
+      style={{
+        flex: 1,
+        height: 50,
+        backgroundColor: 'transparent',
+        border: 'none',
+        outline: 'none',
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: 'inherit',
+        colorScheme: 'dark',
+      }}
+    />
+  </View>
+) : (
+  <>
+    <TouchableOpacity
+      style={styles.dateInput}
+      onPress={() => setShowDatePicker(true)}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.dateText}>
+        {formatDateForDisplay(date)}
       </Text>
 
-      <TextInput
-        style={styles.input}
-        value={date}
-        onChangeText={setDate}
+      <Ionicons
+        name="calendar"
+        size={20}
+        color="#9ca3af"
       />
+    </TouchableOpacity>
 
+    {showDatePicker && (
+      <DateTimePicker
+        value={parseDate(date)}
+        mode="date"
+        display="default"
+        onChange={handleDateChange}
+      />
+    )}
+  </>
+)}
 
       <Text style={styles.label}>
         Court Fee
@@ -190,6 +281,22 @@ const styles = StyleSheet.create({
     borderWidth:1,
     borderColor:'#334155',
   },
+
+  dateInput: {
+  backgroundColor: '#1e293b',
+  borderRadius: 10,
+  padding: 14,
+  borderWidth: 1,
+  borderColor: '#334155',
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+},
+
+dateText: {
+  color: '#fff',
+  fontSize: 16,
+},
 
   button:{
     marginTop:30,

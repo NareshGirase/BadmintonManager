@@ -162,7 +162,7 @@ async def login(request: LoginRequest):
     name_clean = request.name.strip()
     pin_clean = request.pin.strip()
     user = await db.users.find_one({
-        "name": {"$regex": f"^{name_clean}$", "$options": "i"},
+        "name": name_clean,
         "pin": pin_clean,
         "is_active": True
     })
@@ -616,15 +616,33 @@ async def get_user_notifications(user_id: str):
 
 @api_router.put("/notifications/{notification_id}/read")
 async def mark_notification_read(notification_id: str):
+    print("MARK READ ID:", notification_id)
     result = await db.notifications.update_one(
         {"_id": ObjectId(notification_id)},
         {"$set": {"read": True}}
     )
+    print("MATCHED:", result.matched_count)
+    print("MODIFIED:", result.modified_count)
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Notification not found")
     
     return {"message": "Notification marked as read"}
+
+
+@api_router.get("/notifications/count/{user_id}")
+async def get_notification_count(user_id: str):
+
+    count = await db.notifications.count_documents(
+        {
+            "user_id": user_id,
+            "read": False
+        }
+    )
+
+    return {
+        "count": count
+    }
 
 
 # Dashboard Routes

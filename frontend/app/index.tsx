@@ -28,13 +28,15 @@ export default function LoginScreen() {
       await login(name.trim(), pin.trim());
       router.replace('/(tabs)/home');
     } catch (error: any) {
-      Alert.alert(
-        'Login Failed', 
-        'Invalid name or PIN. Please check your credentials and try again.\n\nDefault Admin: Name "Admin", PIN "1234"'
-      );
-    } finally {
-      setIsLoading(false);
-    }
+  console.log("LOGIN ERROR:", error);
+
+  Alert.alert(
+    'Login Failed',
+    error.message || 'Unknown error'
+  );
+} finally {
+  setIsLoading(false);
+}
   };
 
   if (authLoading) {

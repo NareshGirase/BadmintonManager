@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { storage } from '@/src/utils/storage';
 
@@ -17,6 +16,9 @@ interface AuthContextType {
   updateBalance: (newBalance: number) => void;
   refreshUser: () => Promise<void>;
   isLoading: boolean;
+
+  notificationRefresh: number;
+  refreshNotifications: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,6 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [notificationRefresh, setNotificationRefresh] = useState(0);
 
   useEffect(() => {
     loadUser();
@@ -88,13 +91,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   console.log("LOGIN STATUS:", response.status);
 
   if (!response.ok) {
-    throw new Error('Invalid credentials');
-  }
+  const errorText = await response.text();
+  console.log("LOGIN FAILED:", response.status, errorText);
+  throw new Error("Invalid credentials");
+}
 
   const userData = await response.json();
 
+  console.log("LOGIN RESPONSE:", JSON.stringify(userData));
+
   if (userData.token) {
-    await AsyncStorage.setItem("token", userData.token);
+    await storage.secureSet("token", userData.token);
   }
 
   setUser(userData);
@@ -102,9 +109,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
   const logout = async () => {
-    setUser(null);
-    await storage.removeItem('user');
-  };
+  setUser(null);
+  await storage.removeItem('user');
+  await storage.secureRemove("token");
+};
 
   const updateBalance = (newBalance: number) => {
     if (user) {
@@ -113,10 +121,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       storage.setItem('user', JSON.stringify(updatedUser));
     }
   };
+  
+  const refreshNotifications = () => {
+  setNotificationRefresh(prev => prev + 1);
+  };
 
   const refreshUser = async () => {
     if (!user) return;
     const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+    if (!BACKEND_URL) {
+    throw new Error("Backend URL is missing");
+}
     console.log("USING BACKEND:", BACKEND_URL);
     try {
       const res = await fetch(`${BACKEND_URL}/api/players/${user.id}`);
@@ -138,7 +153,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateBalance, refreshUser, isLoading }}>
+    <AuthContext.Provider value={{ user, login, 
+      logout, 
+      updateBalance, 
+      refreshUser,
+      refreshNotifications,
+      notificationRefresh, 
+      isLoading }}>
       {children}
     </AuthContext.Provider>
   );

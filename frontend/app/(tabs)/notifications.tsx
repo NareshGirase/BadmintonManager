@@ -5,7 +5,7 @@ import {
   FlatList,
   ActivityIndicator,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
 } from "react-native";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useFocusEffect } from "expo-router";
@@ -42,26 +42,7 @@ useFocusEffect(
 
     setLoading(false);
   };
-const markAsRead = async (notificationId: string) => {
-  try {
-    const response = await fetch(
-      `${BACKEND_URL}/api/notifications/${notificationId}/read`,
-      {
-        method: "PUT",
-      }
-    );
-
-    console.log("Mark read status:", response.status);
-
-    if (response.ok) {
-      await loadNotifications();
-    }
-
-  } catch (error) {
-    console.log("Mark read error:", error);
-  }
-};
-
+  
   if (loading) {
     return (
       <View style={styles.center}>
@@ -78,22 +59,49 @@ const markAsRead = async (notificationId: string) => {
       ListEmptyComponent={
         <Text style={styles.empty}>No Notifications</Text>
       }
-renderItem={({ item }) => (
-  <TouchableOpacity
-    style={styles.card}
-    activeOpacity={0.7}
-    onPress={() => {
-      console.log("Pressed notification:", item.id);
-      markAsRead(item.id);
-    }}
-  >
+
+  renderItem={({ item }) => (
+  <Pressable
+  style={styles.card}
+  onPress={async () => {
+  try {
+    console.log("🔥 CLICKED:", item.id);
+
+    const response = await fetch(
+      `${BACKEND_URL}/api/notifications/${item.id}/read`,
+      {
+        method: "PUT",
+      }
+    );
+
+    if (!response.ok) {
+      console.log(
+        "Failed to mark notification as read:",
+        response.status
+      );
+      return;
+    }
+
+    console.log("✅ Notification marked as read");
+
+    // Remove notification from the list
+    setNotifications((currentNotifications) =>
+      currentNotifications.filter(
+        (notification) => notification.id !== item.id
+      )
+    );
+  } catch (error) {
+    console.log("Mark notification read error:", error);
+  }
+}}
+>
     <Text style={styles.message}>{item.message}</Text>
 
     <Text style={styles.date}>
       {new Date(item.created_at).toLocaleString()}
     </Text>
-  </TouchableOpacity>
-)}    
+  </Pressable>
+)}
 />
   );
 }
@@ -118,6 +126,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     minHeight: 80,
+
+    
   },
 
   message: {

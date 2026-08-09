@@ -58,7 +58,13 @@ export default function SessionsScreen() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/sessions`);
       const data = await response.json();
-      setSessions(data);
+
+  const sortedSessions = data.sort(
+  (a: Session, b: Session) =>
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+);
+
+setSessions(sortedSessions);
     } catch (error) {
       console.error('Error fetching sessions:', error);
     } finally {
