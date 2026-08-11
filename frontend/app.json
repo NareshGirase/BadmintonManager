@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Badminton Manager",
-    "slug": "badminton-manager",
+    "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "badminton-manager",
+    "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
