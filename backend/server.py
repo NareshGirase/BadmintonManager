@@ -130,6 +130,14 @@ class SessionUpdate(BaseModel):
     date: Optional[str] = None
     court_fee: Optional[float] = None
     players_present: Optional[List[str]] = None
+    
+class OtherExpense(BaseModel):
+    amount: float
+    description: str
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    amount_per_player: float = 0.0
+    players_charged: List[str] = []
 
 
 class Transaction(BaseModel):
@@ -137,6 +145,7 @@ class Transaction(BaseModel):
     amount: float
     type: str  # deposit, deduction
     session_id: Optional[str] = None
+    expense_id: Optional[str] = None
     description: str
     date: datetime = Field(default_factory=datetime.utcnow)
 
@@ -483,6 +492,190 @@ async def delete_session(session_id: str, admin_id: str):
     
     return {"message": "Session deleted successfully"}
 
+# Other Expense Routes
+@api_router.post("/expenses")
+async def add_expense(expense: OtherExpense, admin_id: str):
+    # Verify admin
+    admin = await db.users.find_one({
+        "_id": ObjectId(admin_id)
+    })
+
+    if not admin or admin["role"] != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin can add expenses"
+        )
+
+    # Validate amount
+    if expense.amount <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Expense amount must be greater than 0"
+        )
+
+    # Get all active players
+    players = await db.users.find({
+        "is_active": True
+    }).to_list(1000)
+
+    if not players:
+        raise HTTPException(
+            status_code=400,
+            detail="No active players found"
+        )
+
+    # Split expense equally
+    amount_per_player = expense.amount / len(players)
+
+    # Create expense record
+    expense_data = expense.model_dump()
+    expense_data["amount_per_player"] = amount_per_player
+    expense_data["players_charged"] = [
+    str(player["_id"]) for player in players
+]
+    result = await db.expenses.insert_one(expense_data)
+
+    expense_id = str(result.inserted_id)
+
+    # Deduct from every player
+    for player in players:
+        player_id = str(player["_id"])
+
+        await db.users.update_one(
+            {"_id": player["_id"]},
+            {"$inc": {"balance": -amount_per_player}}
+        )
+
+        # Create separate transaction for each player
+        transaction = Transaction(
+            user_id=player_id,
+            amount=amount_per_player,
+            type="deduction",
+            expense_id=expense_id,
+            description=f"Other expense: {expense.description}"
+        )
+
+        await db.transactions.insert_one(
+            transaction.model_dump()
+        )
+
+    return {
+        "id": expense_id,
+        "message": "Expense added successfully",
+        "total_amount": expense.amount,
+        "players_count": len(players),
+        "amount_per_player": amount_per_player,
+        "description": expense.description
+    }
+
+@api_router.delete("/expenses/{expense_id}")
+async def delete_expense(expense_id: str, admin_id: str):
+    # Verify admin
+    try:
+        admin = await db.users.find_one({
+            "_id": ObjectId(admin_id)
+        })
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid admin ID"
+        )
+
+    if not admin or admin["role"] != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin can delete expenses"
+        )
+
+    # Find expense
+    try:
+        expense = await db.expenses.find_one({
+            "_id": ObjectId(expense_id)
+        })
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid expense ID"
+        )
+
+    if not expense:
+        raise HTTPException(
+            status_code=404,
+            detail="Expense not found"
+        )
+
+    amount_per_player = expense.get("amount_per_player")
+
+    players_charged = expense.get("players_charged", [])
+
+    # Make sure old expenses can still be handled safely
+    if amount_per_player is None or not players_charged:
+        raise HTTPException(
+            status_code=400,
+            detail="This expense cannot be deleted because player charge information is missing"
+        )
+
+    # Refund each player
+    for player_id in players_charged:
+        try:
+            await db.users.update_one(
+                {"_id": ObjectId(player_id)},
+                {"$inc": {"balance": amount_per_player}}
+            )
+        except Exception:
+            continue
+
+    # Delete transactions belonging to this expense
+    await db.transactions.delete_many({
+        "expense_id": expense_id
+    })
+
+    # Delete expense
+    await db.expenses.delete_one({
+        "_id": ObjectId(expense_id)
+    })
+
+    return {
+        "message": "Expense deleted successfully",
+        "refunded_amount_per_player": amount_per_player,
+        "players_refunded": len(players_charged)
+    }
+
+@api_router.get("/expenses")
+async def get_expenses(admin_id: str):
+    # Verify admin
+    try:
+        admin = await db.users.find_one({
+            "_id": ObjectId(admin_id)
+        })
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid admin ID"
+        )
+
+    if not admin or admin["role"] != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin can view expenses"
+        )
+
+    expenses = await db.expenses.find().sort(
+        "created_at", -1
+    ).to_list(1000)
+
+    return [
+        {
+            "id": str(expense["_id"]),
+            "amount": expense["amount"],
+            "description": expense["description"],
+            "created_by": expense["created_by"],
+            "amount_per_player": expense.get("amount_per_player", 0),
+            "players_charged": expense.get("players_charged", []),
+            "created_at": expense["created_at"].isoformat(),
+        }
+        for expense in expenses
+    ]
 
 # Deposit Routes
 @api_router.post("/deposits")
@@ -646,26 +839,49 @@ async def get_notification_count(user_id: str):
 
 
 # Dashboard Routes
+
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats():
-    total_players = await db.users.count_documents({"is_active": True})
+    total_players = await db.users.count_documents({
+        "is_active": True
+    })
+
     total_sessions = await db.sessions.count_documents({})
-    
+
+    # Only active players, not admin accounts
+    active_players = await db.users.find({
+        "is_active": True,
+    }).to_list(1000)
+
+    # Current total balance of the team
+    team_balance = sum(
+        player.get("balance", 0)
+        for player in active_players
+    )
+
     # Get recent sessions (last 7 days)
-    seven_days_ago = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    seven_days_ago = datetime.utcnow().replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0
+    )
+
     recent_sessions = await db.sessions.find({
         "created_at": {"$gte": seven_days_ago}
     }).to_list(1000)
-    
-    total_spent_7days = sum(s["court_fee"] for s in recent_sessions)
-    
+
+    total_spent_7days = sum(
+        s["court_fee"] for s in recent_sessions
+    )
+
     return {
         "total_players": total_players,
         "total_sessions": total_sessions,
         "total_spent_7days": total_spent_7days,
-        "recent_sessions_count": len(recent_sessions)
+        "recent_sessions_count": len(recent_sessions),
+        "team_balance": team_balance
     }
-
 
 # Include the router in the main app
 app.include_router(api_router)

@@ -1,39 +1,118 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+} from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/src/contexts/ToastContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function ProfileScreen() {
   const { user, logout, updateBalance } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
+
   const [depositModalVisible, setDepositModalVisible] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [isAddingDeposit, setIsAddingDeposit] = useState(false);
 
+  // -------------------------
+  // LOGOUT
+  // -------------------------
   const handleLogout = () => {
     setLogoutModalVisible(true);
   };
 
   const confirmLogout = async () => {
     setLogoutModalVisible(false);
-    await logout();
-    router.replace('/');
+
+    try {
+      await logout();
+      router.replace('/');
+
+      setTimeout(() => {
+        showToast('Logged out successfully', 'success');
+      }, 300);
+    } catch (error) {
+      console.error('LOGOUT ERROR:', error);
+
+      setTimeout(() => {
+        showToast('Failed to logout', 'error');
+      }, 300);
+    }
   };
 
+  // -------------------------
+  // ADD DEPOSIT
+  // -------------------------
   const handleAddDeposit = async () => {
-    if (!user || !depositAmount) return;
+    if (isAddingDeposit) {
+      return;
+    }
+
+    if (!user) {
+      setDepositModalVisible(false);
+
+      setTimeout(() => {
+        showToast('User information is unavailable', 'error');
+      }, 200);
+
+      return;
+    }
+
+    if (!depositAmount.trim()) {
+      setDepositModalVisible(false);
+
+      setTimeout(() => {
+        showToast('Please enter a deposit amount', 'warning');
+      }, 200);
+
+      return;
+    }
 
     const amount = parseFloat(depositAmount);
+
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      setDepositModalVisible(false);
+
+      setTimeout(() => {
+        showToast('Please enter a valid amount', 'error');
+      }, 200);
+
+      return;
+    }
+
+    if (!BACKEND_URL) {
+      setDepositModalVisible(false);
+
+      console.error('BACKEND URL IS MISSING');
+
+      setTimeout(() => {
+        showToast('Backend URL is missing', 'error');
+      }, 200);
+
       return;
     }
 
     try {
+      setIsAddingDeposit(true);
+
+      console.log('ADDING DEPOSIT:', {
+        user_id: user.id,
+        amount,
+        backend: BACKEND_URL,
+      });
+
       const response = await fetch(`${BACKEND_URL}/api/deposits`, {
         method: 'POST',
         headers: {
@@ -41,23 +120,66 @@ export default function ProfileScreen() {
         },
         body: JSON.stringify({
           user_id: user.id,
-          amount: amount,
+          amount,
         }),
       });
 
+      console.log('DEPOSIT STATUS:', response.status);
+
       if (response.ok) {
-        Alert.alert('Success', 'Deposit added successfully');
-        updateBalance(user.balance + amount);
+        const data = await response.json().catch(() => null);
+
+        console.log('DEPOSIT SUCCESS:', data);
+
+        updateBalance((user.balance || 0) + amount);
+
         setDepositModalVisible(false);
         setDepositAmount('');
-      } else {
-        Alert.alert('Error', 'Failed to add deposit');
+
+        setTimeout(() => {
+          showToast(
+            `₹${amount.toFixed(2)} deposit added successfully!`,
+            'success'
+          );
+        }, 300);
+
+        return;
       }
+
+      const errorText = await response.text();
+
+      console.error(
+        'DEPOSIT FAILED:',
+        response.status,
+        errorText
+      );
+
+      setDepositModalVisible(false);
+      setDepositAmount('');
+
+      setTimeout(() => {
+        showToast('Failed to add deposit', 'error');
+      }, 300);
     } catch (error) {
-      Alert.alert('Error', 'Failed to add deposit');
+      console.error('DEPOSIT ERROR:', error);
+
+      setDepositModalVisible(false);
+      setDepositAmount('');
+
+      setTimeout(() => {
+        showToast(
+          'Failed to add deposit. Please try again.',
+          'error'
+        );
+      }, 300);
+    } finally {
+      setIsAddingDeposit(false);
     }
   };
 
+  // -------------------------
+  // NAVIGATION
+  // -------------------------
   const viewTransactions = () => {
     router.push('/transactions' as any);
   };
@@ -66,6 +188,9 @@ export default function ProfileScreen() {
     router.push('/monthly-report' as any);
   };
 
+  // -------------------------
+  // BALANCE HELPERS
+  // -------------------------
   const getBalanceColor = (balance: number) => {
     if (balance < 100) return '#ef4444';
     if (balance < 300) return '#f59e0b';
@@ -78,153 +203,378 @@ export default function ProfileScreen() {
     return 'Good';
   };
 
+  const currentBalance = user?.balance || 0;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.scrollView}>
-        {/* Profile Header */}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* PROFILE HEADER */}
         <View style={styles.profileHeader}>
-          <View style={[styles.avatar, { backgroundColor: user?.role === 'admin' ? '#8b5cf6' : '#3b82f6' }]}>
-            <Ionicons name="person" size={48} color="#fff" />
+          <View
+            style={[
+              styles.avatar,
+              {
+                backgroundColor:
+                  user?.role === 'admin'
+                    ? '#8b5cf6'
+                    : '#3b82f6',
+              },
+            ]}
+          >
+            <Ionicons
+              name="person"
+              size={48}
+              color="#fff"
+            />
           </View>
-          <Text style={styles.userName}>{user?.name}</Text>
+
+          <Text style={styles.userName}>
+            {user?.name || 'User'}
+          </Text>
+
           {user?.role === 'admin' && (
             <View style={styles.roleBadge}>
-              <Ionicons name="shield-checkmark" size={16} color="#8b5cf6" />
-              <Text style={styles.roleBadgeText}>Admin</Text>
+              <Ionicons
+                name="shield-checkmark"
+                size={16}
+                color="#8b5cf6"
+              />
+
+              <Text style={styles.roleBadgeText}>
+                Admin
+              </Text>
             </View>
           )}
+
           {user?.phone && (
-            <Text style={styles.userPhone}>{user.phone}</Text>
+            <Text style={styles.userPhone}>
+              {user.phone}
+            </Text>
           )}
         </View>
 
-        {/* Balance Card - only for players (admin has no balance to track) */}
+        {/* BALANCE CARD */}
         {user?.role !== 'admin' && (
           <View style={styles.balanceCard}>
             <View style={styles.balanceHeader}>
-              <Text style={styles.balanceLabel}>Current Balance</Text>
-              <View style={[styles.statusBadge, { backgroundColor: getBalanceColor(user?.balance || 0) + '20' }]}>
-                <Text style={[styles.statusText, { color: getBalanceColor(user?.balance || 0) }]}>
-                  {getBalanceStatus(user?.balance || 0)}
+              <Text style={styles.balanceLabel}>
+                Current Balance
+              </Text>
+
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor:
+                      getBalanceColor(currentBalance) + '20',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+                    {
+                      color:
+                        getBalanceColor(currentBalance),
+                    },
+                  ]}
+                >
+                  {getBalanceStatus(currentBalance)}
                 </Text>
               </View>
             </View>
-            <Text style={[styles.balanceAmount, { color: getBalanceColor(user?.balance || 0) }]}>
-              ₹{user?.balance.toFixed(2)}
+
+            <Text
+              style={[
+                styles.balanceAmount,
+                {
+                  color:
+                    getBalanceColor(currentBalance),
+                },
+              ]}
+            >
+              ₹{currentBalance.toFixed(2)}
             </Text>
+
+            {/* ADD DEPOSIT BUTTON */}
+            <TouchableOpacity
+              style={[
+                styles.depositButton,
+                isAddingDeposit && styles.disabledButton,
+              ]}
+              onPress={() => {
+                if (!isAddingDeposit) {
+                  setDepositModalVisible(true);
+                }
+              }}
+              activeOpacity={0.8}
+              disabled={isAddingDeposit}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={22}
+                color="#fff"
+              />
+
+              <Text style={styles.depositButtonText}>
+                Add Deposit
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Menu Options */}
+        {/* MENU OPTIONS */}
         <View style={styles.menuSection}>
-          <TouchableOpacity style={styles.menuItem} onPress={viewTransactions}>
+          {/* TRANSACTIONS */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={viewTransactions}
+            activeOpacity={0.8}
+          >
             <View style={styles.menuIconContainer}>
-              <Ionicons name="receipt" size={24} color="#10b981" />
+              <Ionicons
+                name="receipt"
+                size={24}
+                color="#10b981"
+              />
             </View>
+
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Transaction History</Text>
-              <Text style={styles.menuSubtitle}>View all your transactions</Text>
+              <Text style={styles.menuTitle}>
+                Transaction History
+              </Text>
+
+              <Text style={styles.menuSubtitle}>
+                View all your transactions
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color="#6b7280"
+            />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={viewMonthlyReport}>
+          {/* MONTHLY REPORT */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={viewMonthlyReport}
+            activeOpacity={0.8}
+          >
             <View style={styles.menuIconContainer}>
-              <Ionicons name="bar-chart" size={24} color="#3b82f6" />
+              <Ionicons
+                name="bar-chart"
+                size={24}
+                color="#3b82f6"
+              />
             </View>
+
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Monthly Report</Text>
-              <Text style={styles.menuSubtitle}>View monthly summary</Text>
+              <Text style={styles.menuTitle}>
+                Monthly Report
+              </Text>
+
+              <Text style={styles.menuSubtitle}>
+                View monthly summary
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color="#6b7280"
+            />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-            <View style={[styles.menuIconContainer, { backgroundColor: '#7f1d1d' }]}>
-              <Ionicons name="log-out" size={24} color="#ef4444" />
+          {/* LOGOUT */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.menuIconContainer,
+                {
+                  backgroundColor: '#7f1d1d',
+                },
+              ]}
+            >
+              <Ionicons
+                name="log-out"
+                size={24}
+                color="#ef4444"
+              />
             </View>
+
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Logout</Text>
-              <Text style={styles.menuSubtitle}>Sign out of your account</Text>
+              <Text style={styles.menuTitle}>
+                Logout
+              </Text>
+
+              <Text style={styles.menuSubtitle}>
+                Sign out of your account
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color="#6b7280"
+            />
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Deposit Modal */}
+      {/* DEPOSIT MODAL */}
       <Modal
         visible={depositModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setDepositModalVisible(false)}
+        onRequestClose={() => {
+          if (!isAddingDeposit) {
+            setDepositModalVisible(false);
+            setDepositAmount('');
+          }
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Deposit</Text>
-            <Text style={styles.modalSubtitle}>Add funds to your account</Text>
+            <Text style={styles.modalTitle}>
+              Add Deposit
+            </Text>
+
+            <Text style={styles.modalSubtitle}>
+              Add funds to your account
+            </Text>
 
             <View style={styles.inputContainer}>
-              <Ionicons name="cash" size={20} color="#9ca3af" style={styles.inputIcon} />
+              <Ionicons
+                name="cash"
+                size={20}
+                color="#9ca3af"
+                style={styles.inputIcon}
+              />
+
               <TextInput
                 style={styles.input}
                 placeholder="Enter amount"
                 placeholderTextColor="#6b7280"
                 value={depositAmount}
                 onChangeText={setDepositAmount}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
+                autoFocus
+                editable={!isAddingDeposit}
               />
             </View>
 
             <View style={styles.modalButtons}>
+              {/* CANCEL */}
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[
+                  styles.modalButton,
+                  styles.cancelButton,
+                  isAddingDeposit && styles.disabledButton,
+                ]}
                 onPress={() => {
-                  setDepositModalVisible(false);
-                  setDepositAmount('');
+                  if (!isAddingDeposit) {
+                    setDepositModalVisible(false);
+                    setDepositAmount('');
+                  }
                 }}
+                disabled={isAddingDeposit}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
+
+              {/* ADD DEPOSIT */}
               <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
+                style={[
+                  styles.modalButton,
+                  styles.confirmButton,
+                  isAddingDeposit && styles.disabledButton,
+                ]}
                 onPress={handleAddDeposit}
+                disabled={isAddingDeposit}
               >
-                <Text style={styles.confirmButtonText}>Add Deposit</Text>
+                <Text style={styles.confirmButtonText}>
+                  {isAddingDeposit
+                    ? 'Adding...'
+                    : 'Add Deposit'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Logout Confirmation Modal */}
+      {/* LOGOUT CONFIRMATION MODAL */}
       <Modal
         visible={logoutModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setLogoutModalVisible(false)}
+        onRequestClose={() =>
+          setLogoutModalVisible(false)
+        }
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.logoutIconContainer}>
-              <Ionicons name="log-out" size={40} color="#ef4444" />
+              <Ionicons
+                name="log-out"
+                size={40}
+                color="#ef4444"
+              />
             </View>
-            <Text style={styles.modalTitle}>Logout?</Text>
-            <Text style={styles.modalSubtitle}>Are you sure you want to sign out?</Text>
+
+            <Text
+              style={[
+                styles.modalTitle,
+                styles.logoutTitle,
+              ]}
+            >
+              Logout?
+            </Text>
+
+            <Text style={styles.modalSubtitle}>
+              Are you sure you want to sign out?
+            </Text>
+
             <View style={styles.modalButtons}>
+              {/* CANCEL */}
               <TouchableOpacity
                 testID="cancel-logout"
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setLogoutModalVisible(false)}
+                style={[
+                  styles.modalButton,
+                  styles.cancelButton,
+                ]}
+                onPress={() =>
+                  setLogoutModalVisible(false)
+                }
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
+
+              {/* LOGOUT */}
               <TouchableOpacity
                 testID="confirm-logout"
-                style={[styles.modalButton, styles.logoutConfirmButton]}
+                style={[
+                  styles.modalButton,
+                  styles.logoutConfirmButton,
+                ]}
                 onPress={confirmLogout}
               >
-                <Text style={styles.confirmButtonText}>Logout</Text>
+                <Text style={styles.confirmButtonText}>
+                  Logout
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -239,13 +589,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f172a',
   },
+
   scrollView: {
     flex: 1,
   },
+
   profileHeader: {
     alignItems: 'center',
     padding: 32,
   },
+
   avatar: {
     width: 96,
     height: 96,
@@ -254,12 +607,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+
   userName: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 8,
   },
+
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -269,15 +624,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 8,
   },
+
   roleBadgeText: {
     color: '#8b5cf6',
     marginLeft: 4,
     fontWeight: '600',
   },
+
   userPhone: {
     fontSize: 16,
     color: '#9ca3af',
   },
+
   balanceCard: {
     backgroundColor: '#1e293b',
     margin: 16,
@@ -286,30 +644,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
+
   balanceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
+
   balanceLabel: {
     fontSize: 16,
     color: '#9ca3af',
   },
+
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
+
   statusText: {
     fontSize: 12,
     fontWeight: '600',
   },
+
   balanceAmount: {
     fontSize: 42,
     fontWeight: 'bold',
     marginBottom: 16,
   },
+
   depositButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -318,15 +682,22 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 12,
   },
+
   depositButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
   },
+
+  disabledButton: {
+    opacity: 0.6,
+  },
+
   menuSection: {
     padding: 16,
   },
+
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -337,6 +708,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
+
   menuIconContainer: {
     width: 48,
     height: 48,
@@ -345,20 +717,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   menuContent: {
     flex: 1,
     marginLeft: 16,
   },
+
   menuTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
     marginBottom: 2,
   },
+
   menuSubtitle: {
     fontSize: 14,
     color: '#9ca3af',
   },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -366,6 +742,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
+
   modalContent: {
     backgroundColor: '#1e293b',
     borderRadius: 16,
@@ -375,17 +752,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
+
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 8,
   },
+
+  logoutTitle: {
+    textAlign: 'center',
+  },
+
   modalSubtitle: {
     fontSize: 16,
     color: '#9ca3af',
     marginBottom: 24,
   },
+
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -396,19 +780,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
+
   inputIcon: {
     marginRight: 12,
   },
+
   input: {
     flex: 1,
     height: 56,
     color: '#fff',
     fontSize: 16,
   },
+
   modalButtons: {
     flexDirection: 'row',
     gap: 12,
   },
+
   modalButton: {
     flex: 1,
     height: 48,
@@ -416,25 +804,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   cancelButton: {
     backgroundColor: '#334155',
   },
+
   cancelButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
+
   confirmButton: {
     backgroundColor: '#10b981',
   },
+
   confirmButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
+
   logoutConfirmButton: {
     backgroundColor: '#ef4444',
   },
+
   logoutIconContainer: {
     width: 72,
     height: 72,

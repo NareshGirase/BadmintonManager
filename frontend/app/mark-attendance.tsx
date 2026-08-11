@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/src/contexts/ToastContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -28,6 +29,7 @@ interface Player {
 
 export default function MarkAttendanceScreen() {
   const { user, logout } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
 
   const [players, setPlayers] = useState<Player[]>([]);
@@ -147,8 +149,9 @@ export default function MarkAttendanceScreen() {
 
   const handleSubmit = async () => {
     if (selectedPlayers.length === 0) {
-      setErrorMessage(
-        'Please select at least one player'
+      showToast(
+        'Please select at least one player',
+        'error'
       );
       return;
     }
@@ -156,8 +159,9 @@ export default function MarkAttendanceScreen() {
     const fee = parseFloat(courtFee);
 
     if (isNaN(fee) || fee <= 0) {
-      setErrorMessage(
-        'Please enter a valid court fee'
+      showToast(
+        'Please enter a valid court fee',
+        'error'
       );
       return;
     }

@@ -48,9 +48,13 @@ export default function TransactionsScreen() {
 
     const token = await getToken();
 
-    const response = await fetch(url, {
-     headers: {
-      Authorization: `Bearer ${token}`,
+   const cleanToken = token?.replace(/^"|"$/g, '');
+
+   console.log('TOKEN RECEIVED:', cleanToken);
+
+   const response = await fetch(url, {
+   headers: {
+    Authorization: `Bearer ${cleanToken}`,
   },
 });
     const data = await response.json();

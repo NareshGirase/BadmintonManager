@@ -1,14 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useToast } from '@/src/contexts/ToastContext';
 
 export default function LoginScreen() {
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
   const { login, user, isLoading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
@@ -19,24 +31,37 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!name.trim() || !pin.trim()) {
-      Alert.alert('Error', 'Please enter both name and PIN');
+      showToast(
+        'Please enter both name and PIN',
+        'error'
+      );
       return;
     }
 
     setIsLoading(true);
+
     try {
       await login(name.trim(), pin.trim());
-      router.replace('/(tabs)/home');
-    } catch (error: any) {
-  console.log("LOGIN ERROR:", error);
 
-  Alert.alert(
-    'Login Failed',
-    error.message || 'Unknown error'
-  );
-} finally {
-  setIsLoading(false);
-}
+      showToast(
+        'Login successful!',
+        'success'
+      );
+
+    setTimeout(() => {
+      router.replace('/(tabs)/home');
+    }, 800);
+
+    } catch (error: any) {
+      console.log('LOGIN ERROR:', error);
+
+      showToast(
+        error?.message || 'Invalid credentials',
+        'error'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (authLoading) {
@@ -48,20 +73,38 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
+
         <View style={styles.header}>
-          <Ionicons name="tennisball" size={64} color="#10b981" />
-          <Text style={styles.title}>Badminton Manager</Text>
-          <Text style={styles.subtitle}>Track your court expenses</Text>
+          <Ionicons
+            name="tennisball"
+            size={64}
+            color="#10b981"
+          />
+
+          <Text style={styles.title}>
+            Badminton Manager
+          </Text>
+
+          <Text style={styles.subtitle}>
+            Track your court expenses
+          </Text>
         </View>
 
         <View style={styles.form}>
+
           <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+            <Ionicons
+              name="person-outline"
+              size={20}
+              color="#9ca3af"
+              style={styles.inputIcon}
+            />
+
             <TextInput
               style={styles.input}
               placeholder="Your Name"
@@ -74,7 +117,13 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color="#9ca3af"
+              style={styles.inputIcon}
+            />
+
             <TextInput
               style={styles.input}
               placeholder="PIN"
@@ -87,22 +136,31 @@ export default function LoginScreen() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.button, isLoading && styles.buttonDisabled]}
+          <TouchableOpacity
+            style={[
+              styles.button,
+              isLoading && styles.buttonDisabled,
+            ]}
             onPress={handleLogin}
             disabled={isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Login</Text>
+              <Text style={styles.buttonText}>
+                Login
+              </Text>
             )}
           </TouchableOpacity>
+
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Contact admin to create an account</Text>
+          <Text style={styles.footerText}>
+            Contact admin to create an account
+          </Text>
         </View>
+
       </View>
     </KeyboardAvoidingView>
   );
@@ -113,35 +171,42 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f172a',
   },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#0f172a',
   },
+
   content: {
     flex: 1,
     justifyContent: 'center',
     padding: 24,
   },
+
   header: {
     alignItems: 'center',
     marginBottom: 48,
   },
+
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
     marginTop: 16,
   },
+
   subtitle: {
     fontSize: 16,
     color: '#9ca3af',
     marginTop: 8,
   },
+
   form: {
     width: '100%',
   },
+
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -152,15 +217,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
+
   inputIcon: {
     marginRight: 12,
   },
+
   input: {
     flex: 1,
     height: 56,
     color: '#fff',
     fontSize: 16,
   },
+
   button: {
     backgroundColor: '#10b981',
     height: 56,
@@ -169,18 +237,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+
   buttonDisabled: {
     opacity: 0.6,
   },
+
   buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
+
   footer: {
     marginTop: 32,
     alignItems: 'center',
   },
+
   footerText: {
     color: '#6b7280',
     fontSize: 14,

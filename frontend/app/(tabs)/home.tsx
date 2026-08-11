@@ -155,6 +155,19 @@ setPlayers(playersData);
               </View>
               <Ionicons name="chevron-forward" size={20} color="#6b7280" />
             </TouchableOpacity>
+            <TouchableOpacity 
+           style={styles.actionButton}
+            onPress={() => router.push('/other-expense' as any)}
+            >
+          <View style={styles.actionIcon}>
+          <Ionicons name="cash-outline" size={24} color="#f59e0b" />
+        </View>
+        <View style={styles.actionContent}>
+        <Text style={styles.actionTitle}>Add Expense</Text>
+        <Text style={styles.actionSubtitle}>Add a team expense</Text>
+        </View>
+      <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+    </TouchableOpacity>
           </View>
         )}
 
