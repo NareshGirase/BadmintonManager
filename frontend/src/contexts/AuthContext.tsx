@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (name: string, pin: string) => {
-   const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
   console.log("LOGIN BACKEND URL:", BACKEND_URL);
   console.log("LOGIN NAME:", name);
@@ -91,18 +91,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   console.log("LOGIN STATUS:", response.status);
 
   if (!response.ok) {
-  const errorText = await response.text();
-  console.log("LOGIN FAILED:", response.status, errorText);
-  throw new Error("Invalid credentials");
-}
+    const errorText = await response.text();
+    console.log("LOGIN FAILED:", response.status, errorText);
+    throw new Error("Invalid credentials");
+  }
 
   const userData = await response.json();
 
-  console.log("LOGIN RESPONSE:", JSON.stringify(userData));
+  console.log(
+    "LOGIN RESPONSE:",
+    JSON.stringify({
+      ...userData,
+      token: userData.token ? "[TOKEN PRESENT]" : undefined,
+    })
+  );
 
-  if (userData.token) {
-    await storage.secureSet("token", userData.token);
+  // Make sure backend returned a JWT
+  if (!userData.token || typeof userData.token !== 'string') {
+    console.error("LOGIN ERROR: JWT token is missing");
+    throw new Error("Login failed: authentication token missing");
   }
+
+  console.log("TOKEN RECEIVED: yes");
+  console.log("TOKEN LENGTH:", userData.token.length);
+
+  // Save JWT securely
+  const saved = await storage.secureSet("token", userData.token);
+
+  if (!saved) {
+    console.error("LOGIN ERROR: Failed to save JWT");
+    throw new Error("Login failed: could not save authentication token");
+  }
+
+  // Read it back to verify storage
+  const savedToken = await storage.secureGet("token", null);
+
+  console.log("TOKEN SAVED:", savedToken !== null);
+  //console.log("STORED TOKEN LENGTH:", savedToken.length);
 
   setUser(userData);
   await storage.setItem('user', JSON.stringify(userData));

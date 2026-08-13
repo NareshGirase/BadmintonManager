@@ -4,7 +4,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getToken } from '@/src/utils/storage/auth';
+import { storage } from '@/src/utils/storage';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -46,15 +46,21 @@ export default function TransactionsScreen() {
 
     console.log("Fetching:", url);
 
-    const token = await getToken();
+    const token = await storage.secureGet('token', null);
 
-   const cleanToken = token?.replace(/^"|"$/g, '');
+if (!token || typeof token !== 'string') {
+  console.error('TRANSACTIONS: JWT token is missing');
+  return;
+}
 
-   console.log('TOKEN RECEIVED:', cleanToken);
+console.log('TOKEN RECEIVED: yes');
+//console.log('TOKEN LENGTH:', token.length);
 
-   const response = await fetch(url, {
-   headers: {
-    Authorization: `Bearer ${cleanToken}`,
+const response = await fetch(url, {
+  method: 'GET',
+  headers: {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
   },
 });
     const data = await response.json();
