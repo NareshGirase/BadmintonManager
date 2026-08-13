@@ -214,10 +214,10 @@ try {
     );
 
     showToast(
-      'error',
       data?.detail ||
         data?.message ||
-        'Failed to update session.'
+        'Failed to update session.',
+        'error'
     );
 
     return;

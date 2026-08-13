@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity,KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/src/contexts/ToastContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function AddPlayerScreen() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
@@ -18,31 +20,46 @@ export default function AddPlayerScreen() {
 
   React.useEffect(() => {
     if (!user || user.role !== 'admin') {
-      Alert.alert('Access Denied', 'Only admin can add players');
+      showToast('Only admin can add players', 'error');
       router.back();
     }
   }, [user]);
 
   const handleSubmit = async () => {
-    if (!name.trim() || !pin.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
+  if (!name.trim() || !pin.trim()) {
+    showToast(
+      'Please fill in all required fields',
+      'error'
+    );
+    return;
+  }
 
-    if (pin.length < 4) {
-      Alert.alert('Error', 'PIN must be at least 4 digits');
-      return;
-    }
+  if (pin.length < 4) {
+    showToast(
+      'PIN must be at least 4 digits',
+      'error'
+    );
+    return;
+  }
 
-    const balance = initialBalance ? parseFloat(initialBalance) : 0;
-    if (isNaN(balance) || balance < 0) {
-      Alert.alert('Error', 'Please enter a valid initial balance');
-      return;
-    }
+  const balance = initialBalance
+    ? parseFloat(initialBalance)
+    : 0;
 
-    setSubmitting(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
+  if (isNaN(balance) || balance < 0) {
+    showToast(
+      'Please enter a valid initial balance',
+      'error'
+    );
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/api/auth/register`,
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -54,38 +71,39 @@ export default function AddPlayerScreen() {
           balance: balance,
           role: 'player',
         }),
-      });
-
-      if (response.ok) {
-        Alert.alert(
-          'Success',
-          `Player "${name}" has been added successfully!`,
-          [
-            {
-              text: 'Add Another',
-              onPress: () => {
-                setName('');
-                setPin('');
-                setPhone('');
-                setInitialBalance('');
-              },
-            },
-            {
-              text: 'Done',
-              onPress: () => router.back(),
-            },
-          ]
-        );
-      } else {
-        const error = await response.json();
-        Alert.alert('Error', error.detail || 'Failed to add player');
       }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add player');
-    } finally {
-      setSubmitting(false);
+    );
+
+    if (response.ok) {
+      showToast(
+        `Player "${name.trim()}" has been added successfully!`,
+        'success'
+      );
+
+      // Clear form for another player
+      setName('');
+      setPin('');
+      setPhone('');
+      setInitialBalance('');
+    } else {
+      const error = await response.json();
+
+      showToast(
+        error?.detail || 'Failed to add player',
+        'error'
+      );
     }
-  };
+  } catch (error) {
+    console.error('ADD PLAYER ERROR:', error);
+
+    showToast(
+      'Failed to add player. Please try again.',
+      'error'
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

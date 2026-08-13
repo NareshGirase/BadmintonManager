@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, TextInput, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator,TextInput, Modal, Platform } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/src/contexts/ToastContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -17,6 +18,7 @@ interface Player {
 
 export default function PlayersScreen() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,25 +38,28 @@ export default function PlayersScreen() {
   }, [user]);
 
   const fetchPlayers = async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/players`);
-      const data = await response.json();
-      // Exclude admin from list (admin isn't a player)
-      if (user?.role === 'admin') {
-        // Admin can see everyone including himself
-        setPlayers(data);
-      } else {
-  // Player can see only his own details
-      setPlayers(data.filter((p: Player) => p.id === user?.id));
-}
-    } catch (error) {
-      console.error('Error fetching players:', error);
-      Alert.alert('Error', 'Failed to load players');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/players`);
 
+    if (!response.ok) {
+      throw new Error('Failed to load players');
+    }
+
+    const data = await response.json();
+
+    if (user?.role === 'admin') {
+      setPlayers(data);
+    } else {
+      setPlayers(data.filter((p: Player) => p.id === user?.id));
+    }
+  } catch (error) {
+    console.error('Error fetching players:', error);
+
+    showToast('Failed to load players', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchPlayers();
@@ -62,60 +67,103 @@ export default function PlayersScreen() {
   }, []);
 
   const handleAddDeposit = async () => {
-    if (!selectedPlayer || !depositAmount) return;
+  if (!selectedPlayer || !depositAmount) return;
 
-    const amount = parseFloat(depositAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
-      return;
-    }
+  const amount = parseFloat(depositAmount);
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/deposits`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: selectedPlayer.id,
-          amount: amount,
-        }),
-      });
+  if (isNaN(amount) || amount <= 0) {
+    showToast('Please enter a valid amount', 'error');
+    return;
+  }
 
-      if (response.ok) {
-        Alert.alert('Success', 'Deposit added successfully');
-        setDepositModalVisible(false);
-        setDepositAmount('');
-        setSelectedPlayer(null);
-        fetchPlayers();
-      } else {
-        Alert.alert('Error', 'Failed to add deposit');
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/deposits`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: selectedPlayer.id,
+        amount: amount,
+      }),
+    });
+
+    if (response.ok) {
+      showToast('Deposit added successfully', 'success');
+
+      setDepositModalVisible(false);
+      setDepositAmount('');
+      setSelectedPlayer(null);
+
+      await fetchPlayers();
+    } else {
+      let errorMessage = 'Failed to add deposit';
+
+      try {
+        const error = await response.json();
+        errorMessage = error?.detail || errorMessage;
+      } catch {
+        // Response wasn't JSON
       }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add deposit');
-    }
-  };
 
+      showToast(errorMessage, 'error');
+    }
+  } catch (error) {
+    console.error('ADD DEPOSIT ERROR:', error);
+
+    showToast(
+      'Failed to add deposit. Please try again.',
+      'error'
+    );
+  }
+};
   const confirmDeletePlayer = async () => {
-    if (!deleteTargetPlayer) return;
-    setDeleting(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/players/${deleteTargetPlayer.id}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        setDeleteTargetPlayer(null);
-        await fetchPlayers();
-      } else {
-        Alert.alert('Error', 'Failed to remove player');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to remove player');
-    } finally {
-      setDeleting(false);
-    }
-  };
+  if (!deleteTargetPlayer) return;
 
+  setDeleting(true);
+
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/api/players/${deleteTargetPlayer.id}`,
+      {
+        method: 'DELETE',
+      }
+    );
+
+    if (response.ok) {
+      const playerName = deleteTargetPlayer.name;
+
+      setDeleteTargetPlayer(null);
+
+      await fetchPlayers();
+
+      showToast(
+        `Player "${playerName}" removed successfully`,
+        'success'
+      );
+    } else {
+      let errorMessage = 'Failed to remove player';
+
+      try {
+        const error = await response.json();
+        errorMessage = error?.detail || errorMessage;
+      } catch {
+        // Response wasn't JSON
+      }
+
+      showToast(errorMessage, 'error');
+    }
+  } catch (error) {
+    console.error('DELETE PLAYER ERROR:', error);
+
+    showToast(
+      'Failed to remove player. Please try again.',
+      'error'
+    );
+  } finally {
+    setDeleting(false);
+  }
+};
   const getBalanceColor = (balance: number) => {
     if (balance < 100) return '#ef4444';
     if (balance < 300) return '#f59e0b';

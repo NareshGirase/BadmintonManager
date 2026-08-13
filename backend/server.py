@@ -372,18 +372,42 @@ async def create_session(session_data: SessionCreate, admin_id: str):
 
 
 @api_router.get("/sessions")
-async def get_sessions(limit: int = 50):
-    sessions = await db.sessions.find().sort("created_at", -1).limit(limit).to_list(limit)
+async def get_sessions(
+    user=Depends(verify_token),
+    limit: int = 50
+):
+    # Admins can see all sessions
+    if user.get("role") == "admin":
+        query = {}
+    else:
+        # Players can only see sessions where they were present
+        query = {
+            "players_present": user["user_id"]
+        }
+        print("AUTH USER:", user)
+        print("USER ID:", user.get("user_id"))
+        print("USER ID TYPE:", type(user.get("user_id")))
+        print("ROLE:", user.get("role"))
+        print("SESSION QUERY:", query)
+
+    sessions = await db.sessions.find(query).sort(
+        "created_at", -1
+    ).limit(limit).to_list(limit)
+
     result = []
-    
+
     for session in sessions:
         # Get player names
         player_names = []
+
         for player_id in session["players_present"]:
-            player = await db.users.find_one({"_id": ObjectId(player_id)})
+            player = await db.users.find_one({
+                "_id": ObjectId(player_id)
+            })
+
             if player:
                 player_names.append(player["name"])
-        
+
         result.append({
             "id": str(session["_id"]),
             "date": session["date"],
@@ -393,7 +417,7 @@ async def get_sessions(limit: int = 50):
             "amount_per_player": session["amount_per_player"],
             "created_at": session["created_at"].isoformat()
         })
-    
+
     return result
 
 @api_router.get("/sessions/{session_id}")
@@ -472,25 +496,58 @@ async def update_session(session_id: str, update_data: SessionUpdate, admin_id: 
 
 
 @api_router.delete("/sessions/{session_id}")
-async def delete_session(session_id: str, admin_id: str):
-    # Verify admin
-    admin = await db.users.find_one({"_id": ObjectId(admin_id)})
-    if not admin or admin["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Only admin can delete sessions")
-    
+async def delete_session(
+    session_id: str,
+    user=Depends(verify_token)
+):
+    # Verify admin from JWT
+    if user.get("role") != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin can delete sessions"
+        )
+
     # Get session
-    session = await db.sessions.find_one({"_id": ObjectId(session_id)})
+    try:
+        session = await db.sessions.find_one({
+            "_id": ObjectId(session_id)
+        })
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session ID"
+        )
+
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
- 
-    
-    # Delete transactions
-    await db.transactions.delete_many({"session_id": session_id})
-    
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found"
+        )
+
+    # Refund each player
+    amount_per_player = session["amount_per_player"]
+
+    for player_id in session["players_present"]:
+        await db.users.update_one(
+            {"_id": ObjectId(player_id)},
+            {"$inc": {"balance": amount_per_player}}
+        )
+
+    # Delete transactions belonging to this session
+    await db.transactions.delete_many({
+        "session_id": session_id
+    })
+
     # Delete session
-    await db.sessions.delete_one({"_id": ObjectId(session_id)})
-    
-    return {"message": "Session deleted successfully"}
+    await db.sessions.delete_one({
+        "_id": ObjectId(session_id)
+    })
+
+    return {
+        "message": "Session deleted successfully",
+        "refunded_amount_per_player": amount_per_player,
+        "players_refunded": len(session["players_present"])
+    }
 
 # Other Expense Routes
 @api_router.post("/expenses")

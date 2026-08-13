@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Modal } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { storage } from '@/src/utils/storage';
+import { useToast } from '@/src/contexts/ToastContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -19,6 +21,7 @@ interface Session {
 
 export default function SessionsScreen() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
   const params = useLocalSearchParams<{ newSessionAmount?: string }>();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -55,16 +58,38 @@ export default function SessionsScreen() {
   }, [params.newSessionAmount]);
 
   const fetchSessions = async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/sessions`);
-      const data = await response.json();
-      setSessions(data);
-    } catch (error) {
-      console.error('Error fetching sessions:', error);
-    } finally {
-      setLoading(false);
+  try {
+    const token = await storage.secureGet("token", null);
+
+    if (!token) {
+      console.error("No authentication token found");
+      return;
     }
-  };
+
+    const response = await fetch(`${BACKEND_URL}/api/sessions`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(
+        "Failed to fetch sessions:",
+        response.status,
+        await response.text()
+      );
+      return;
+    }
+
+    const data = await response.json();
+
+    setSessions(data);
+  } catch (error) {
+    console.error('Error fetching sessions:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -73,24 +98,50 @@ export default function SessionsScreen() {
   }, []);
 
   const confirmDelete = async () => {
-    if (!deleteTargetId) return;
-    setDeleting(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/sessions/${deleteTargetId}?admin_id=${user?.id}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        setDeleteTargetId(null);
-        await fetchSessions();
-      } else {
-        Alert.alert('Error', 'Failed to delete session');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to delete session');
-    } finally {
-      setDeleting(false);
+  if (!deleteTargetId) return;
+
+  setDeleting(true);
+
+  try {
+    const token = await storage.secureGet("token", null);
+
+    if (!token) {
+      showToast('Authentication token not found', 'error');
+      return;
     }
-  };
+
+    const response = await fetch(
+      `${BACKEND_URL}/api/sessions/${deleteTargetId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.ok) {
+      setDeleteTargetId(null);
+      await fetchSessions();
+
+      showToast(
+        'Session deleted and amount refunded successfully',
+        'success'
+      );
+    } else {
+      const errorText = await response.text();
+      console.error('Delete session failed:', response.status, errorText);
+
+      showToast('Failed to delete session', 'error');
+    }
+  } catch (error) {
+    console.error('Error deleting session:', error);
+
+    showToast('Failed to delete session', 'error');
+  } finally {
+    setDeleting(false);
+  }
+};
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
