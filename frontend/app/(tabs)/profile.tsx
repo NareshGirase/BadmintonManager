@@ -21,10 +21,17 @@ export default function ProfileScreen() {
   const { showToast } = useToast();
   const router = useRouter();
 
-  const [depositModalVisible, setDepositModalVisible] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
-  const [isAddingDeposit, setIsAddingDeposit] = useState(false);
+  const [depositModalVisible, setDepositModalVisible] =
+    useState(false);
+
+  const [depositAmount, setDepositAmount] =
+    useState('');
+
+  const [logoutModalVisible, setLogoutModalVisible] =
+    useState(false);
+
+  const [isAddingDeposit, setIsAddingDeposit] =
+    useState(false);
 
   // -------------------------
   // LOGOUT
@@ -38,16 +45,23 @@ export default function ProfileScreen() {
 
     try {
       await logout();
+
       router.replace('/');
 
       setTimeout(() => {
-        showToast('Logged out successfully', 'success');
+        showToast(
+          'Logged out successfully',
+          'success'
+        );
       }, 300);
     } catch (error) {
       console.error('LOGOUT ERROR:', error);
 
       setTimeout(() => {
-        showToast('Failed to logout', 'error');
+        showToast(
+          'Failed to logout',
+          'error'
+        );
       }, 300);
     }
   };
@@ -60,11 +74,28 @@ export default function ProfileScreen() {
       return;
     }
 
+    // Extra frontend permission check
+    if (user?.role !== 'admin') {
+      setDepositModalVisible(false);
+
+      setTimeout(() => {
+        showToast(
+          'Only admin can add deposits',
+          'error'
+        );
+      }, 200);
+
+      return;
+    }
+
     if (!user) {
       setDepositModalVisible(false);
 
       setTimeout(() => {
-        showToast('User information is unavailable', 'error');
+        showToast(
+          'User information is unavailable',
+          'error'
+        );
       }, 200);
 
       return;
@@ -74,7 +105,10 @@ export default function ProfileScreen() {
       setDepositModalVisible(false);
 
       setTimeout(() => {
-        showToast('Please enter a deposit amount', 'warning');
+        showToast(
+          'Please enter a deposit amount',
+          'warning'
+        );
       }, 200);
 
       return;
@@ -86,7 +120,10 @@ export default function ProfileScreen() {
       setDepositModalVisible(false);
 
       setTimeout(() => {
-        showToast('Please enter a valid amount', 'error');
+        showToast(
+          'Please enter a valid amount',
+          'error'
+        );
       }, 200);
 
       return;
@@ -95,10 +132,15 @@ export default function ProfileScreen() {
     if (!BACKEND_URL) {
       setDepositModalVisible(false);
 
-      console.error('BACKEND URL IS MISSING');
+      console.error(
+        'BACKEND URL IS MISSING'
+      );
 
       setTimeout(() => {
-        showToast('Backend URL is missing', 'error');
+        showToast(
+          'Backend URL is missing',
+          'error'
+        );
       }, 200);
 
       return;
@@ -113,32 +155,47 @@ export default function ProfileScreen() {
         backend: BACKEND_URL,
       });
 
-      const response = await fetch(`${BACKEND_URL}/api/deposits`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          amount,
-        }),
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/api/deposits`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            amount,
+          }),
+        }
+      );
 
-      console.log('DEPOSIT STATUS:', response.status);
+      console.log(
+        'DEPOSIT STATUS:',
+        response.status
+      );
 
       if (response.ok) {
-        const data = await response.json().catch(() => null);
+        const data = await response
+          .json()
+          .catch(() => null);
 
-        console.log('DEPOSIT SUCCESS:', data);
+        console.log(
+          'DEPOSIT SUCCESS:',
+          data
+        );
 
-        updateBalance((user.balance || 0) + amount);
+        updateBalance(
+          (user.balance || 0) + amount
+        );
 
         setDepositModalVisible(false);
         setDepositAmount('');
 
         setTimeout(() => {
           showToast(
-            `₹${amount.toFixed(2)} deposit added successfully!`,
+            `₹${amount.toFixed(
+              2
+            )} deposit added successfully!`,
             'success'
           );
         }, 300);
@@ -146,7 +203,8 @@ export default function ProfileScreen() {
         return;
       }
 
-      const errorText = await response.text();
+      const errorText =
+        await response.text();
 
       console.error(
         'DEPOSIT FAILED:',
@@ -158,10 +216,16 @@ export default function ProfileScreen() {
       setDepositAmount('');
 
       setTimeout(() => {
-        showToast('Failed to add deposit', 'error');
+        showToast(
+          'Failed to add deposit',
+          'error'
+        );
       }, 300);
     } catch (error) {
-      console.error('DEPOSIT ERROR:', error);
+      console.error(
+        'DEPOSIT ERROR:',
+        error
+      );
 
       setDepositModalVisible(false);
       setDepositAmount('');
@@ -181,38 +245,64 @@ export default function ProfileScreen() {
   // NAVIGATION
   // -------------------------
   const viewTransactions = () => {
-    router.push('/transactions' as any);
+    router.push(
+      '/transactions' as any
+    );
   };
 
   const viewMonthlyReport = () => {
-    router.push('/monthly-report' as any);
+    router.push(
+      '/monthly-report' as any
+    );
   };
 
   // -------------------------
   // BALANCE HELPERS
   // -------------------------
-  const getBalanceColor = (balance: number) => {
-    if (balance < 100) return '#ef4444';
-    if (balance < 300) return '#f59e0b';
+  const getBalanceColor = (
+    balance: number
+  ) => {
+    if (balance < 100) {
+      return '#ef4444';
+    }
+
+    if (balance < 300) {
+      return '#f59e0b';
+    }
+
     return '#10b981';
   };
 
-  const getBalanceStatus = (balance: number) => {
-    if (balance < 100) return 'Critical';
-    if (balance < 300) return 'Low';
+  const getBalanceStatus = (
+    balance: number
+  ) => {
+    if (balance < 100) {
+      return 'Critical';
+    }
+
+    if (balance < 300) {
+      return 'Low';
+    }
+
     return 'Good';
   };
 
-  const currentBalance = user?.balance || 0;
+  const currentBalance =
+    user?.balance || 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView
+      style={styles.container}
+      edges={['top']}
+    >
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
         {/* PROFILE HEADER */}
-        <View style={styles.profileHeader}>
+        <View
+          style={styles.profileHeader}
+        >
           <View
             style={[
               styles.avatar,
@@ -231,45 +321,64 @@ export default function ProfileScreen() {
             />
           </View>
 
-          <Text style={styles.userName}>
+          <Text
+            style={styles.userName}
+          >
             {user?.name || 'User'}
           </Text>
 
           {user?.role === 'admin' && (
-            <View style={styles.roleBadge}>
+            <View
+              style={styles.roleBadge}
+            >
               <Ionicons
                 name="shield-checkmark"
                 size={16}
                 color="#8b5cf6"
               />
 
-              <Text style={styles.roleBadgeText}>
+              <Text
+                style={
+                  styles.roleBadgeText
+                }
+              >
                 Admin
               </Text>
             </View>
           )}
 
           {user?.phone && (
-            <Text style={styles.userPhone}>
+            <Text
+              style={styles.userPhone}
+            >
               {user.phone}
             </Text>
           )}
         </View>
 
         {/* BALANCE CARD */}
-        {user?.role !== 'admin' && (
-          <View style={styles.balanceCard}>
-            <View style={styles.balanceHeader}>
-              <Text style={styles.balanceLabel}>
-                Current Balance
-              </Text>
+        <View
+          style={styles.balanceCard}
+        >
+          <View
+            style={styles.balanceHeader}
+          >
+            <Text
+              style={styles.balanceLabel}
+            >
+              Current Balance
+            </Text>
 
+            {/* Status badge only for players */}
+            {user?.role !== 'admin' && (
               <View
                 style={[
                   styles.statusBadge,
                   {
                     backgroundColor:
-                      getBalanceColor(currentBalance) + '20',
+                      getBalanceColor(
+                        currentBalance
+                      ) + '20',
                   },
                 ]}
               >
@@ -278,36 +387,47 @@ export default function ProfileScreen() {
                     styles.statusText,
                     {
                       color:
-                        getBalanceColor(currentBalance),
+                        getBalanceColor(
+                          currentBalance
+                        ),
                     },
                   ]}
                 >
-                  {getBalanceStatus(currentBalance)}
+                  {getBalanceStatus(
+                    currentBalance
+                  )}
                 </Text>
               </View>
-            </View>
+            )}
+          </View>
 
-            <Text
-              style={[
-                styles.balanceAmount,
-                {
-                  color:
-                    getBalanceColor(currentBalance),
-                },
-              ]}
-            >
-              ₹{currentBalance.toFixed(2)}
-            </Text>
+          <Text
+            style={[
+              styles.balanceAmount,
+              {
+                color:
+                  getBalanceColor(
+                    currentBalance
+                  ),
+              },
+            ]}
+          >
+            ₹{currentBalance.toFixed(2)}
+          </Text>
 
-            {/* ADD DEPOSIT BUTTON */}
+          {/* ADD DEPOSIT - ADMIN ONLY */}
+          {user?.role === 'admin' && (
             <TouchableOpacity
               style={[
                 styles.depositButton,
-                isAddingDeposit && styles.disabledButton,
+                isAddingDeposit &&
+                  styles.disabledButton,
               ]}
               onPress={() => {
                 if (!isAddingDeposit) {
-                  setDepositModalVisible(true);
+                  setDepositModalVisible(
+                    true
+                  );
                 }
               }}
               activeOpacity={0.8}
@@ -319,22 +439,34 @@ export default function ProfileScreen() {
                 color="#fff"
               />
 
-              <Text style={styles.depositButtonText}>
+              <Text
+                style={
+                  styles.depositButtonText
+                }
+              >
                 Add Deposit
               </Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+        </View>
 
         {/* MENU OPTIONS */}
-        <View style={styles.menuSection}>
+        <View
+          style={styles.menuSection}
+        >
           {/* TRANSACTIONS */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={viewTransactions}
+            onPress={
+              viewTransactions
+            }
             activeOpacity={0.8}
           >
-            <View style={styles.menuIconContainer}>
+            <View
+              style={
+                styles.menuIconContainer
+              }
+            >
               <Ionicons
                 name="receipt"
                 size={24}
@@ -342,12 +474,20 @@ export default function ProfileScreen() {
               />
             </View>
 
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>
+            <View
+              style={styles.menuContent}
+            >
+              <Text
+                style={styles.menuTitle}
+              >
                 Transaction History
               </Text>
 
-              <Text style={styles.menuSubtitle}>
+              <Text
+                style={
+                  styles.menuSubtitle
+                }
+              >
                 View all your transactions
               </Text>
             </View>
@@ -362,10 +502,16 @@ export default function ProfileScreen() {
           {/* MONTHLY REPORT */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={viewMonthlyReport}
+            onPress={
+              viewMonthlyReport
+            }
             activeOpacity={0.8}
           >
-            <View style={styles.menuIconContainer}>
+            <View
+              style={
+                styles.menuIconContainer
+              }
+            >
               <Ionicons
                 name="bar-chart"
                 size={24}
@@ -373,12 +519,20 @@ export default function ProfileScreen() {
               />
             </View>
 
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>
+            <View
+              style={styles.menuContent}
+            >
+              <Text
+                style={styles.menuTitle}
+              >
                 Monthly Report
               </Text>
 
-              <Text style={styles.menuSubtitle}>
+              <Text
+                style={
+                  styles.menuSubtitle
+                }
+              >
                 View monthly summary
               </Text>
             </View>
@@ -400,7 +554,8 @@ export default function ProfileScreen() {
               style={[
                 styles.menuIconContainer,
                 {
-                  backgroundColor: '#7f1d1d',
+                  backgroundColor:
+                    '#7f1d1d',
                 },
               ]}
             >
@@ -411,12 +566,20 @@ export default function ProfileScreen() {
               />
             </View>
 
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>
+            <View
+              style={styles.menuContent}
+            >
+              <Text
+                style={styles.menuTitle}
+              >
                 Logout
               </Text>
 
-              <Text style={styles.menuSubtitle}>
+              <Text
+                style={
+                  styles.menuSubtitle
+                }
+              >
                 Sign out of your account
               </Text>
             </View>
@@ -430,29 +593,45 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      {/* DEPOSIT MODAL */}
+      {/* DEPOSIT MODAL - ADMIN ONLY */}
       <Modal
-        visible={depositModalVisible}
+        visible={
+          depositModalVisible &&
+          user?.role === 'admin'
+        }
         transparent
         animationType="fade"
         onRequestClose={() => {
           if (!isAddingDeposit) {
-            setDepositModalVisible(false);
+            setDepositModalVisible(
+              false
+            );
+
             setDepositAmount('');
           }
         }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
+        <View
+          style={styles.modalOverlay}
+        >
+          <View
+            style={styles.modalContent}
+          >
+            <Text
+              style={styles.modalTitle}
+            >
               Add Deposit
             </Text>
 
-            <Text style={styles.modalSubtitle}>
+            <Text
+              style={styles.modalSubtitle}
+            >
               Add funds to your account
             </Text>
 
-            <View style={styles.inputContainer}>
+            <View
+              style={styles.inputContainer}
+            >
               <Ionicons
                 name="cash"
                 size={20}
@@ -465,30 +644,44 @@ export default function ProfileScreen() {
                 placeholder="Enter amount"
                 placeholderTextColor="#6b7280"
                 value={depositAmount}
-                onChangeText={setDepositAmount}
+                onChangeText={
+                  setDepositAmount
+                }
                 keyboardType="decimal-pad"
                 autoFocus
-                editable={!isAddingDeposit}
+                editable={
+                  !isAddingDeposit
+                }
               />
             </View>
 
-            <View style={styles.modalButtons}>
+            <View
+              style={styles.modalButtons}
+            >
               {/* CANCEL */}
               <TouchableOpacity
                 style={[
                   styles.modalButton,
                   styles.cancelButton,
-                  isAddingDeposit && styles.disabledButton,
+                  isAddingDeposit &&
+                    styles.disabledButton,
                 ]}
                 onPress={() => {
                   if (!isAddingDeposit) {
-                    setDepositModalVisible(false);
+                    setDepositModalVisible(
+                      false
+                    );
+
                     setDepositAmount('');
                   }
                 }}
                 disabled={isAddingDeposit}
               >
-                <Text style={styles.cancelButtonText}>
+                <Text
+                  style={
+                    styles.cancelButtonText
+                  }
+                >
                   Cancel
                 </Text>
               </TouchableOpacity>
@@ -498,12 +691,19 @@ export default function ProfileScreen() {
                 style={[
                   styles.modalButton,
                   styles.confirmButton,
-                  isAddingDeposit && styles.disabledButton,
+                  isAddingDeposit &&
+                    styles.disabledButton,
                 ]}
-                onPress={handleAddDeposit}
+                onPress={
+                  handleAddDeposit
+                }
                 disabled={isAddingDeposit}
               >
-                <Text style={styles.confirmButtonText}>
+                <Text
+                  style={
+                    styles.confirmButtonText
+                  }
+                >
                   {isAddingDeposit
                     ? 'Adding...'
                     : 'Add Deposit'}
@@ -520,12 +720,22 @@ export default function ProfileScreen() {
         transparent
         animationType="fade"
         onRequestClose={() =>
-          setLogoutModalVisible(false)
+          setLogoutModalVisible(
+            false
+          )
         }
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.logoutIconContainer}>
+        <View
+          style={styles.modalOverlay}
+        >
+          <View
+            style={styles.modalContent}
+          >
+            <View
+              style={
+                styles.logoutIconContainer
+              }
+            >
               <Ionicons
                 name="log-out"
                 size={40}
@@ -542,11 +752,16 @@ export default function ProfileScreen() {
               Logout?
             </Text>
 
-            <Text style={styles.modalSubtitle}>
-              Are you sure you want to sign out?
+            <Text
+              style={styles.modalSubtitle}
+            >
+              Are you sure you want to
+              sign out?
             </Text>
 
-            <View style={styles.modalButtons}>
+            <View
+              style={styles.modalButtons}
+            >
               {/* CANCEL */}
               <TouchableOpacity
                 testID="cancel-logout"
@@ -555,10 +770,16 @@ export default function ProfileScreen() {
                   styles.cancelButton,
                 ]}
                 onPress={() =>
-                  setLogoutModalVisible(false)
+                  setLogoutModalVisible(
+                    false
+                  )
                 }
               >
-                <Text style={styles.cancelButtonText}>
+                <Text
+                  style={
+                    styles.cancelButtonText
+                  }
+                >
                   Cancel
                 </Text>
               </TouchableOpacity>
@@ -570,9 +791,15 @@ export default function ProfileScreen() {
                   styles.modalButton,
                   styles.logoutConfirmButton,
                 ]}
-                onPress={confirmLogout}
+                onPress={
+                  confirmLogout
+                }
               >
-                <Text style={styles.confirmButtonText}>
+                <Text
+                  style={
+                    styles.confirmButtonText
+                  }
+                >
                   Logout
                 </Text>
               </TouchableOpacity>
@@ -737,7 +964,8 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor:
+      'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
