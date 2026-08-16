@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -19,7 +20,12 @@ export default function MonthlyReportScreen() {
   const router = useRouter();
   const [summary, setSummary] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const month = `${selectedDate.getFullYear()}-${String(
+    selectedDate.getMonth() + 1
+  ).padStart(2, '0')}`;
 
   useEffect(() => {
     if (!user) {
@@ -70,17 +76,91 @@ export default function MonthlyReportScreen() {
 
       {/* Month Selector */}
       <View style={styles.monthSelector}>
-        <Text style={styles.monthLabel}>Select Month:</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons name="calendar" size={20} color="#9ca3af" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            value={month}
-            onChangeText={setMonth}
-            placeholder="YYYY-MM"
-            placeholderTextColor="#6b7280"
-          />
-        </View>
+        <Text style={styles.monthLabel}>
+          Select Month:
+        </Text>
+
+        {Platform.OS === 'web' ? (
+          <View style={styles.datePickerButton}>
+            <Ionicons
+              name="calendar"
+              size={20}
+              color="#10b981"
+            />
+
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => {
+                const [year, monthValue] = e.target.value
+                  .split('-')
+                  .map(Number);
+
+                setSelectedDate(
+                  new Date(year, monthValue - 1, 1)
+                );
+              }}
+              style={{
+                flex: 1,
+                height: 46,
+                marginLeft: 12,
+                backgroundColor: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: '#ffffff',
+                fontSize: 16,
+                fontFamily: 'inherit',
+                colorScheme: 'dark',
+              }}
+            />
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.datePickerButton}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="calendar"
+                size={20}
+                color="#10b981"
+              />
+
+              <Text style={styles.datePickerText}>
+                {selectedDate.toLocaleDateString('en-IN', {
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </Text>
+
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                color="#9ca3af"
+              />
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display={
+                  Platform.OS === 'ios'
+                    ? 'spinner'
+                    : 'default'
+                }
+                onChange={(event, date) => {
+                  setShowDatePicker(false);
+
+                  if (date) {
+                    setSelectedDate(date);
+                  }
+                }}
+              />
+            )}
+          </>
+        )}
       </View>
 
       {loading ? (
@@ -194,23 +274,23 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     marginBottom: 8,
   },
-  inputContainer: {
+  datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1e293b',
     borderRadius: 12,
     paddingHorizontal: 16,
+    height: 48,
     borderWidth: 1,
     borderColor: '#334155',
   },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
+
+  datePickerText: {
     flex: 1,
-    height: 48,
     color: '#fff',
     fontSize: 16,
+    fontWeight: '400',
+    marginLeft: 12,
   },
   loadingContainer: {
     flex: 1,
