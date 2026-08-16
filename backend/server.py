@@ -391,7 +391,7 @@ async def get_sessions(
         print("SESSION QUERY:", query)
 
     sessions = await db.sessions.find(query).sort(
-        "created_at", -1
+        "date", -1
     ).limit(limit).to_list(limit)
 
     result = []
