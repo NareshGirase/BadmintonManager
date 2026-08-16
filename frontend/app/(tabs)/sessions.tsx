@@ -34,62 +34,64 @@ export default function SessionsScreen() {
   useEffect(() => {
     if (!user) {
       router.replace('/');
-      return;
     }
-    fetchSessions();
   }, [user]);
-  
+
   useFocusEffect(
-  useCallback(() => {
-    if (user) {
-      fetchSessions();
-    }
-  }, [user])
-);
+    useCallback(() => {
+      if (user) {
+        fetchSessions();
+      }
+    }, [user])
+  );
 
   useEffect(() => {
-    if (params.newSessionAmount) {
-      setSuccessBanner(`Session created! ₹${params.newSessionAmount} deducted per player`);
-      const t = setTimeout(() => setSuccessBanner(null), 4000);
-      // Clear param
-      router.setParams({ newSessionAmount: undefined });
-      return () => clearTimeout(t);
-    }
+    if (!params.newSessionAmount) return;
+
+    setSuccessBanner(
+      `Session created! ₹${params.newSessionAmount} deducted per player`
+    );
+
+    const timer = setTimeout(() => {
+      setSuccessBanner(null);
+    }, 4000);
+
+    return () => clearTimeout(timer);
   }, [params.newSessionAmount]);
 
   const fetchSessions = async () => {
-  try {
-    const token = await storage.secureGet("token", null);
+    try {
+      const token = await storage.secureGet("token", null);
 
-    if (!token) {
-      console.error("No authentication token found");
-      return;
+      if (!token) {
+        console.error("No authentication token found");
+        return;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/sessions`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error(
+          "Failed to fetch sessions:",
+          response.status,
+          await response.text()
+        );
+        return;
+      }
+
+      const data = await response.json();
+
+      setSessions(data);
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+    } finally {
+      setLoading(false);
     }
-
-    const response = await fetch(`${BACKEND_URL}/api/sessions`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      console.error(
-        "Failed to fetch sessions:",
-        response.status,
-        await response.text()
-      );
-      return;
-    }
-
-    const data = await response.json();
-
-    setSessions(data);
-  } catch (error) {
-    console.error('Error fetching sessions:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -98,54 +100,54 @@ export default function SessionsScreen() {
   }, []);
 
   const confirmDelete = async () => {
-  if (!deleteTargetId) return;
+    if (!deleteTargetId) return;
 
-  setDeleting(true);
+    setDeleting(true);
 
-  try {
-    const token = await storage.secureGet("token", null);
+    try {
+      const token = await storage.secureGet("token", null);
 
-    if (!token) {
-      showToast('Authentication token not found', 'error');
-      return;
-    }
-
-    const response = await fetch(
-      `${BACKEND_URL}/api/sessions/${deleteTargetId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      if (!token) {
+        showToast('Authentication token not found', 'error');
+        return;
       }
-    );
 
-    if (response.ok) {
-      setDeleteTargetId(null);
-      await fetchSessions();
-
-      showToast(
-        'Session deleted and amount refunded successfully',
-        'success'
+      const response = await fetch(
+        `${BACKEND_URL}/api/sessions/${deleteTargetId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
-    } else {
-      const errorText = await response.text();
-      console.error('Delete session failed:', response.status, errorText);
+
+      if (response.ok) {
+        setDeleteTargetId(null);
+        await fetchSessions();
+
+        showToast(
+          'Session deleted and amount refunded successfully',
+          'success'
+        );
+      } else {
+        const errorText = await response.text();
+        console.error('Delete session failed:', response.status, errorText);
+
+        showToast('Failed to delete session', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting session:', error);
 
       showToast('Failed to delete session', 'error');
+    } finally {
+      setDeleting(false);
     }
-  } catch (error) {
-    console.error('Error deleting session:', error);
-
-    showToast('Failed to delete session', 'error');
-  } finally {
-    setDeleting(false);
-  }
-};
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', { 
+    return date.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric'
@@ -189,49 +191,49 @@ export default function SessionsScreen() {
             {sessions.map((session) => (
               <View key={session.id} style={styles.sessionCard}>
                 <View style={styles.sessionHeader}>
-  <View style={styles.dateContainer}>
-    <Ionicons name="calendar" size={20} color="#10b981" />
-    <Text style={styles.sessionDate}>
-      {formatDate(session.date)}
-    </Text>
-  </View>
+                  <View style={styles.dateContainer}>
+                    <Ionicons name="calendar" size={20} color="#10b981" />
+                    <Text style={styles.sessionDate}>
+                      {formatDate(session.date)}
+                    </Text>
+                  </View>
 
-  {user?.role === 'admin' && (
-  <View style={styles.adminActions}>
-    <TouchableOpacity
-      style={styles.editIconButton}
-      activeOpacity={0.7}
-      onPress={() =>
-        router.push({
-          pathname: '/edit-session',
-          params: {
-            sessionId: session.id,
-          },
-        } as any)
-      }
-    >
-      <Ionicons
-        name="create-outline"
-        size={22}
-        color="#10b981"
-      />
-    </TouchableOpacity>
+                  {user?.role === 'admin' && (
+                    <View style={styles.adminActions}>
+                      <TouchableOpacity
+                        style={styles.editIconButton}
+                        activeOpacity={0.7}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/edit-session',
+                            params: {
+                              sessionId: session.id,
+                            },
+                          } as any)
+                        }
+                      >
+                        <Ionicons
+                          name="create-outline"
+                          size={22}
+                          color="#10b981"
+                        />
+                      </TouchableOpacity>
 
-    <TouchableOpacity
-      testID={`delete-session-${session.id}`}
-      style={styles.deleteIconButton}
-      activeOpacity={0.7}
-      onPress={() => setDeleteTargetId(session.id)}
-    >
-      <Ionicons
-        name="trash-outline"
-        size={22}
-        color="#ef4444"
-      />
-    </TouchableOpacity>
-  </View>
-)}
-</View> 
+                      <TouchableOpacity
+                        testID={`delete-session-${session.id}`}
+                        style={styles.deleteIconButton}
+                        activeOpacity={0.7}
+                        onPress={() => setDeleteTargetId(session.id)}
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={22}
+                          color="#ef4444"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
                 <View style={styles.sessionDetails}>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Court Fee:</Text>
@@ -518,14 +520,14 @@ const styles = StyleSheet.create({
   },
 
   editIconButton: {
-  width: 40,
-  height: 40,
-  borderRadius: 20,
-  backgroundColor: '#064e3b',
-  justifyContent: 'center',
-  alignItems: 'center',
-  marginRight: 8,
-},
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#064e3b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
   adminActions: {
     flexDirection: 'row',
     alignItems: 'center',

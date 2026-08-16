@@ -879,6 +879,23 @@ async def mark_notification_read(notification_id: str):
     
     return {"message": "Notification marked as read"}
 
+@api_router.put("/notifications/user/{user_id}/read-all")
+async def mark_all_notifications_read(user_id: str):
+    result = await db.notifications.update_many(
+        {
+            "user_id": user_id,
+            "read": False
+        },
+        {
+            "$set": {"read": True}
+        }
+    )
+
+    return {
+        "message": "All notifications marked as read",
+        "updated_count": result.modified_count
+    }
+
 
 @api_router.get("/notifications/count/{user_id}")
 async def get_notification_count(user_id: str):
