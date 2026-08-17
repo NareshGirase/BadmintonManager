@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { storage } from '@/src/utils/storage';
+import { registerPushToken } from '@/src/utils/storage/pushNotifications';
 
 interface User {
   id: string;
@@ -54,6 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               };
               setUser(updated);
               await storage.setItem('user', JSON.stringify(updated));
+              // Register this device for push notifications
+              await registerPushToken(updated.id);
             } else {
               // User deactivated - clear session
               await storage.removeItem('user');
@@ -75,69 +78,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (name: string, pin: string) => {
-  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+    const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-  console.log("LOGIN BACKEND URL:", BACKEND_URL);
-  console.log("LOGIN NAME:", name);
+    console.log("LOGIN BACKEND URL:", BACKEND_URL);
+    console.log("LOGIN NAME:", name);
 
-  const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ name, pin }),
-  });
+    const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name, pin }),
+    });
 
-  console.log("LOGIN STATUS:", response.status);
+    console.log("LOGIN STATUS:", response.status);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.log("LOGIN FAILED:", response.status, errorText);
-    throw new Error("Invalid credentials");
-  }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log("LOGIN FAILED:", response.status, errorText);
+      throw new Error("Invalid credentials");
+    }
 
-  const userData = await response.json();
+    const userData = await response.json();
 
-  console.log(
-    "LOGIN RESPONSE:",
-    JSON.stringify({
-      ...userData,
-      token: userData.token ? "[TOKEN PRESENT]" : undefined,
-    })
-  );
+    console.log(
+      "LOGIN RESPONSE:",
+      JSON.stringify({
+        ...userData,
+        token: userData.token ? "[TOKEN PRESENT]" : undefined,
+      })
+    );
 
-  // Make sure backend returned a JWT
-  if (!userData.token || typeof userData.token !== 'string') {
-    console.error("LOGIN ERROR: JWT token is missing");
-    throw new Error("Login failed: authentication token missing");
-  }
+    // Make sure backend returned a JWT
+    if (!userData.token || typeof userData.token !== 'string') {
+      console.error("LOGIN ERROR: JWT token is missing");
+      throw new Error("Login failed: authentication token missing");
+    }
 
-  console.log("TOKEN RECEIVED: yes");
-  console.log("TOKEN LENGTH:", userData.token.length);
+    console.log("TOKEN RECEIVED: yes");
+    console.log("TOKEN LENGTH:", userData.token.length);
 
-  // Save JWT securely
-  const saved = await storage.secureSet("token", userData.token);
+    // Save JWT securely
+    const saved = await storage.secureSet("token", userData.token);
 
-  if (!saved) {
-    console.error("LOGIN ERROR: Failed to save JWT");
-    throw new Error("Login failed: could not save authentication token");
-  }
+    if (!saved) {
+      console.error("LOGIN ERROR: Failed to save JWT");
+      throw new Error("Login failed: could not save authentication token");
+    }
 
-  // Read it back to verify storage
-  const savedToken = await storage.secureGet("token", null);
+    // Read it back to verify storage
+    const savedToken = await storage.secureGet("token", null);
 
-  console.log("TOKEN SAVED:", savedToken !== null);
-  //console.log("STORED TOKEN LENGTH:", savedToken.length);
+    console.log("TOKEN SAVED:", savedToken !== null);
+    //console.log("STORED TOKEN LENGTH:", savedToken.length);
 
-  setUser(userData);
-  await storage.setItem('user', JSON.stringify(userData));
-};
+    setUser(userData);
+    await storage.setItem('user', JSON.stringify(userData));
+
+    console.log(
+      "🔥 LOGIN SUCCESS - ABOUT TO REGISTER PUSH TOKEN"
+    );
+
+    // Register this device for push notifications
+    await registerPushToken(userData.id);
+
+    console.log(
+      "🔥 PUSH TOKEN REGISTRATION FUNCTION FINISHED"
+    );
+  };
+
 
   const logout = async () => {
-  setUser(null);
-  await storage.removeItem('user');
-  await storage.secureRemove("token");
-};
+    setUser(null);
+    await storage.removeItem('user');
+    await storage.secureRemove("token");
+  };
 
   const updateBalance = (newBalance: number) => {
     if (user) {
@@ -146,17 +161,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       storage.setItem('user', JSON.stringify(updatedUser));
     }
   };
-  
+
   const refreshNotifications = () => {
-  setNotificationRefresh(prev => prev + 1);
+    setNotificationRefresh(prev => prev + 1);
   };
 
   const refreshUser = async () => {
     if (!user) return;
     const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
     if (!BACKEND_URL) {
-    throw new Error("Backend URL is missing");
-}
+      throw new Error("Backend URL is missing");
+    }
     console.log("USING BACKEND:", BACKEND_URL);
     try {
       const res = await fetch(`${BACKEND_URL}/api/players/${user.id}`);
@@ -178,13 +193,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, 
-      logout, 
-      updateBalance, 
+    <AuthContext.Provider value={{
+      user, login,
+      logout,
+      updateBalance,
       refreshUser,
       refreshNotifications,
-      notificationRefresh, 
-      isLoading }}>
+      notificationRefresh,
+      isLoading
+    }}>
       {children}
     </AuthContext.Provider>
   );

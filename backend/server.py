@@ -359,6 +359,7 @@ async def create_session(session_data: SessionCreate, admin_id: str):
             if message:
                 notification = Notification(
                     user_id=player_id,
+                
                     message=message,
                     type="low_balance"
                 )
@@ -434,6 +435,42 @@ async def get_session(session_id: str):
         "players_present": session["players_present"],
         "amount_per_player": session["amount_per_player"],
         "created_at": session["created_at"].isoformat(),
+    }
+class PushTokenRequest(BaseModel):
+    user_id: str
+    expo_push_token: str
+
+
+@api_router.post("/notifications/push-token")
+async def save_push_token(data: PushTokenRequest):
+
+    print("================================")
+    print("SAVE PUSH TOKEN")
+    print("USER ID:", data.user_id)
+    print("TOKEN:", data.expo_push_token)
+    print("================================")
+
+    result = await db.users.update_one(
+        {
+            "_id": ObjectId(data.user_id)
+        },
+        {
+            "$set": {
+                "expo_push_token":
+                    data.expo_push_token
+            }
+        }
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    return {
+        "message":
+            "Push token saved successfully"
     }
 
 @api_router.put("/sessions/{session_id}")
